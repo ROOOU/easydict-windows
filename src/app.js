@@ -23,6 +23,7 @@ const settingsView = $('#settingsView');
 let config = null;
 let isPinned = false;
 let isTranslating = false;
+let isOcrInProgress = false;
 
 // ==================== Init ====================
 async function init() {
@@ -183,13 +184,7 @@ function setupTauriListeners() {
     }
   });
 
-  listen('screenshot-ocr', async () => {
-    settingsView.classList.add('hidden');
-    mainView.classList.remove('hidden');
-    doOCR();
-  });
-
-  // New: trigger-screenshot event (from Alt+S hotkey or tray menu)
+  // trigger-screenshot event (from Alt+S hotkey or tray menu)
   listen('trigger-screenshot', async () => {
     doOCR();
   });
@@ -331,14 +326,9 @@ function getServiceIconLabel(service) {
 
 // ==================== OCR ====================
 async function doOCR() {
+  if (isOcrInProgress) return;
+  isOcrInProgress = true;
   try {
-    // The Rust command handles everything:
-    // 1. Hides main window
-    // 2. Triggers Win+Shift+S (native snipping tool)
-    // 3. Waits for clipboard image
-    // 4. OCRs the image
-    // 5. Emits ocr-result/ocr-error events
-    // 6. Shows main window
     await invoke('start_screenshot_ocr');
   } catch (e) {
     await getCurrentWindow().show().catch(() => { });
@@ -347,6 +337,8 @@ async function doOCR() {
     resultsSection.innerHTML = '<div class="result-card"><div class="result-body"><span class="result-error"></span></div></div>';
     resultsSection.querySelector('.result-error').textContent = '截图失败: ' + errMsg;
     loadingBar.classList.remove('active');
+  } finally {
+    isOcrInProgress = false;
   }
 }
 

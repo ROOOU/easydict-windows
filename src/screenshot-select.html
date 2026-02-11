@@ -27,16 +27,6 @@
             height: 100vh;
         }
 
-        #overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 10;
-        }
-
         #hint {
             position: fixed;
             top: 50%;
@@ -88,6 +78,7 @@
         let currentX = 0, currentY = 0;
         let scaleX = 1, scaleY = 1;
         let imageLoaded = false;
+        let completed = false; // Track if OCR was submitted or cancelled properly
 
         async function init() {
             try {
@@ -177,8 +168,7 @@
             const h = Math.round(Math.abs(currentY - startY) * scaleY);
 
             if (w < 10 || h < 10) {
-                // Selection too small, ignore
-                // Redraw with overlay
+                // Selection too small, reset
                 if (imageLoaded) {
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
@@ -189,14 +179,17 @@
                 return;
             }
 
+            // Mark completed BEFORE invoking so the unload handler doesn't also cancel
+            completed = true;
+
             try {
-                // Close this window first
-                await getCurrentWindow().close();
-                // Then trigger OCR on the selected region
+                // Call OCR FIRST, then close window (closing first kills JS context)
                 await invoke('ocr_selected_region', { x, y, w, h });
             } catch (e) {
                 console.error('OCR error:', e);
             }
+
+            getCurrentWindow().close().catch(() => { });
         });
 
         document.addEventListener('keydown', (e) => {
@@ -205,13 +198,23 @@
             }
         });
 
+        // Safety net: if the window closes without completing OCR, reset the flag
+        window.addEventListener('beforeunload', () => {
+            if (!completed) {
+                // Use synchronous-style fire-and-forget
+                invoke('cancel_screenshot').catch(() => { });
+            }
+        });
+
         async function cancel() {
+            if (completed) return;
+            completed = true;
             try {
                 await invoke('cancel_screenshot');
             } catch (e) {
                 console.error('Cancel error:', e);
             }
-            await getCurrentWindow().close();
+            getCurrentWindow().close().catch(() => { });
         }
 
         init();
