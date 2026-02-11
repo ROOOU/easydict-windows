@@ -591,7 +591,8 @@ fn register_shortcuts_from_config(app: &AppHandle) {
 
     let config = {
         let state = app.state::<AppState>();
-        state.config.lock().unwrap().clone()
+        let cfg = state.config.lock().unwrap().clone();
+        cfg
     };
 
     // Input translate
