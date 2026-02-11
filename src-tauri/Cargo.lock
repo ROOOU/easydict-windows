@@ -863,6 +863,7 @@ name = "easydict-win"
 version = "1.0.0"
 dependencies = [
  "arboard",
+ "base64 0.22.1",
  "dirs 5.0.1",
  "image",
  "md5",

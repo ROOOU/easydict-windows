@@ -1,11 +1,10 @@
 @echo off
-chcp 65001 >nul 2>&1
 title EasyDict Windows
 
 echo.
-echo  ╔══════════════════════════════════╗
-echo  ║     EasyDict Windows Launcher    ║
-echo  ╚══════════════════════════════════╝
+echo  ====================================
+echo       EasyDict Windows Launcher
+echo  ====================================
 echo.
 
 :: Check Node.js
