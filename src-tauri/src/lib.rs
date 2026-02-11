@@ -20,6 +20,7 @@ pub struct AppState {
     pub client: Client,
     pub clipboard_monitoring: Arc<AtomicBool>,
     pub screenshot_data: Mutex<Vec<u8>>,
+    pub screenshot_in_progress: AtomicBool,
 }
 
 // ==================== Tauri Commands ====================
@@ -170,6 +171,12 @@ fn float_icon_clicked(app: AppHandle) {
 /// Step 1: Capture full screen, store it, open region selector window
 #[tauri::command]
 async fn start_screenshot_ocr(app: AppHandle, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    // Prevent multiple simultaneous triggers
+    if state.screenshot_in_progress.swap(true, Ordering::SeqCst) {
+        eprintln!("[OCR] Screenshot already in progress, ignoring");
+        return Ok(());
+    }
+
     eprintln!("[OCR] Starting screenshot capture...");
 
     // Hide main window first so it doesn't appear in the screenshot
@@ -185,9 +192,27 @@ async fn start_screenshot_ocr(app: AppHandle, state: tauri::State<'_, AppState>)
     }
 
     // Capture the screen
-    let png_bytes = tokio::task::spawn_blocking(|| {
+    let png_bytes = match tokio::task::spawn_blocking(|| {
         ocr::capture_screen()
-    }).await.map_err(|e| format!("Task join error: {}", e))??;
+    }).await {
+        Ok(Ok(bytes)) => bytes,
+        Ok(Err(e)) => {
+            state.screenshot_in_progress.store(false, Ordering::SeqCst);
+            if let Some(win) = app.get_webview_window("main") {
+                win.show().ok();
+                win.set_focus().ok();
+            }
+            return Err(e);
+        }
+        Err(e) => {
+            state.screenshot_in_progress.store(false, Ordering::SeqCst);
+            if let Some(win) = app.get_webview_window("main") {
+                win.show().ok();
+                win.set_focus().ok();
+            }
+            return Err(format!("Task join error: {}", e));
+        }
+    };
 
     eprintln!("[OCR] Screenshot captured: {} bytes", png_bytes.len());
 
@@ -212,6 +237,7 @@ async fn start_screenshot_ocr(app: AppHandle, state: tauri::State<'_, AppState>)
         }
         Err(e) => {
             eprintln!("[OCR] Failed to create window: {}", e);
+            state.screenshot_in_progress.store(false, Ordering::SeqCst);
             if let Some(win) = app.get_webview_window("main") {
                 win.show().ok();
                 win.set_focus().ok();
@@ -277,8 +303,9 @@ async fn ocr_selected_region(
         ocr::ocr_from_png_bytes(&buf, "auto")
     }).await.map_err(|e| format!("Task join error: {}", e))?;
 
-    // Clear stored screenshot
+    // Clear stored screenshot and reset flag
     state.screenshot_data.lock().unwrap().clear();
+    state.screenshot_in_progress.store(false, Ordering::SeqCst);
 
     // Send result via GLOBAL event
     match result {
@@ -306,6 +333,7 @@ async fn ocr_selected_region(
 fn cancel_screenshot(app: AppHandle, state: tauri::State<AppState>) {
     eprintln!("[OCR] cancel_screenshot called");
     state.screenshot_data.lock().unwrap().clear();
+    state.screenshot_in_progress.store(false, Ordering::SeqCst);
     if let Some(win) = app.get_webview_window("main") {
         win.show().ok();
         win.set_focus().ok();
@@ -605,6 +633,7 @@ pub fn run() {
         client,
         clipboard_monitoring: monitoring.clone(),
         screenshot_data: Mutex::new(Vec::new()),
+        screenshot_in_progress: AtomicBool::new(false),
     };
 
     tauri::Builder::default()
