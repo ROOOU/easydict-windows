@@ -1,5 +1,4 @@
-#[cfg(target_os = "windows")]
-use windows::Media::SpeechSynthesis::SpeechSynthesizer;
+
 
 /// Speak text using Windows Speech API (SAPI via WinRT).
 /// This is async-blocking: it waits for speech to complete.

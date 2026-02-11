@@ -598,7 +598,7 @@ fn register_shortcuts_from_config(app: &AppHandle) {
     if config.hotkeys.input_translate.enabled && !config.hotkeys.input_translate.shortcut.is_empty() {
         let shortcut = config.hotkeys.input_translate.shortcut.clone();
         let app_handle = app.clone();
-        if let Err(e) = app.global_shortcut().on_shortcut(&shortcut, move |_app, _shortcut, _event| {
+        if let Err(e) = app.global_shortcut().on_shortcut(shortcut.as_str(), move |_app, _shortcut, _event| {
             app_handle.emit("focus-input", ()).ok();
             if let Some(win) = app_handle.get_webview_window("main") {
                 win.show().ok();
@@ -613,7 +613,7 @@ fn register_shortcuts_from_config(app: &AppHandle) {
     if config.hotkeys.select_translate.enabled && !config.hotkeys.select_translate.shortcut.is_empty() {
         let shortcut = config.hotkeys.select_translate.shortcut.clone();
         let app_handle = app.clone();
-        if let Err(e) = app.global_shortcut().on_shortcut(&shortcut, move |_app, _shortcut, _event| {
+        if let Err(e) = app.global_shortcut().on_shortcut(shortcut.as_str(), move |_app, _shortcut, _event| {
             app_handle.emit("select-translate", ()).ok();
             if let Some(win) = app_handle.get_webview_window("main") {
                 win.show().ok();
@@ -628,7 +628,7 @@ fn register_shortcuts_from_config(app: &AppHandle) {
     if config.hotkeys.screenshot_translate.enabled && !config.hotkeys.screenshot_translate.shortcut.is_empty() {
         let shortcut = config.hotkeys.screenshot_translate.shortcut.clone();
         let app_handle = app.clone();
-        if let Err(e) = app.global_shortcut().on_shortcut(&shortcut, move |_app, _shortcut, _event| {
+        if let Err(e) = app.global_shortcut().on_shortcut(shortcut.as_str(), move |_app, _shortcut, _event| {
             app_handle.emit("trigger-screenshot", ()).ok();
         }) {
             eprintln!("Failed to register {}: {}", shortcut, e);
