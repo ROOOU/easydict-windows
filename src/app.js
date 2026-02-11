@@ -77,6 +77,16 @@ function applyConfig(cfg) {
     $('#selectTranslateEnabled').checked = cfg.select_translate.enabled !== false;
     $('#selectTranslateMode').value = cfg.select_translate.mode || 'icon';
   }
+
+  // Hotkey settings
+  if (cfg.hotkeys) {
+    $('#hotkeyInputEnabled').checked = cfg.hotkeys.input_translate.enabled !== false;
+    $('#hotkeyInputShortcut').value = cfg.hotkeys.input_translate.shortcut || '';
+    $('#hotkeySelectEnabled').checked = cfg.hotkeys.select_translate.enabled !== false;
+    $('#hotkeySelectShortcut').value = cfg.hotkeys.select_translate.shortcut || '';
+    $('#hotkeyScreenshotEnabled').checked = cfg.hotkeys.screenshot_translate.enabled !== false;
+    $('#hotkeyScreenshotShortcut').value = cfg.hotkeys.screenshot_translate.shortcut || '';
+  }
 }
 
 function applyTheme(theme) {
@@ -157,6 +167,50 @@ function setupEventListeners() {
     if (config && config.general.theme === 'auto') {
       applyTheme('auto');
     }
+  });
+
+  // Hotkey recorder
+  document.querySelectorAll('.hotkey-input').forEach(input => {
+    input.addEventListener('keydown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Ignore modifier-only presses
+      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+
+      const parts = [];
+      if (e.ctrlKey) parts.push('Ctrl');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+      if (e.metaKey) parts.push('Super');
+
+      // Need at least one modifier
+      if (parts.length === 0) return;
+
+      // Map key name to Tauri format
+      let key = e.key;
+      if (key.length === 1) {
+        key = key.toUpperCase();
+      } else {
+        // Map common key names
+        const keyMap = {
+          'ArrowUp': 'Up', 'ArrowDown': 'Down', 'ArrowLeft': 'Left', 'ArrowRight': 'Right',
+          'Escape': 'Escape', 'Enter': 'Enter', 'Backspace': 'Backspace', 'Delete': 'Delete',
+          'Tab': 'Tab', 'Space': 'Space', ' ': 'Space',
+          'F1': 'F1', 'F2': 'F2', 'F3': 'F3', 'F4': 'F4', 'F5': 'F5', 'F6': 'F6',
+          'F7': 'F7', 'F8': 'F8', 'F9': 'F9', 'F10': 'F10', 'F11': 'F11', 'F12': 'F12',
+        };
+        key = keyMap[key] || key;
+      }
+
+      parts.push(key);
+      input.value = parts.join('+');
+      input.blur();
+    });
+
+    // Visual focus state
+    input.addEventListener('focus', () => input.classList.add('recording'));
+    input.addEventListener('blur', () => input.classList.remove('recording'));
   });
 }
 
@@ -370,8 +424,23 @@ async function saveSettings() {
   config.select_translate.mode = $('#selectTranslateMode').value;
   config.select_translate.monitor_clipboard = $('#selectTranslateEnabled').checked;
 
+  // Hotkey settings
+  config.hotkeys.input_translate = {
+    enabled: $('#hotkeyInputEnabled').checked,
+    shortcut: $('#hotkeyInputShortcut').value,
+  };
+  config.hotkeys.select_translate = {
+    enabled: $('#hotkeySelectEnabled').checked,
+    shortcut: $('#hotkeySelectShortcut').value,
+  };
+  config.hotkeys.screenshot_translate = {
+    enabled: $('#hotkeyScreenshotEnabled').checked,
+    shortcut: $('#hotkeyScreenshotShortcut').value,
+  };
+
   try {
     await invoke('update_config', { config });
+    await invoke('update_shortcuts');
     targetLang.value = config.general.target_lang;
     showToast('设置已保存');
   } catch (e) {

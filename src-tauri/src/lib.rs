@@ -586,38 +586,72 @@ fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn setup_shortcuts(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+fn register_shortcuts_from_config(app: &AppHandle) {
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-    let app_handle = app.clone();
-    if let Err(e) = app.global_shortcut().on_shortcut("Alt+A", move |_app, _shortcut, _event| {
-        app_handle.emit("focus-input", ()).ok();
-        if let Some(win) = app_handle.get_webview_window("main") {
-            win.show().ok();
-            win.set_focus().ok();
+    let config = {
+        let state = app.state::<AppState>();
+        state.config.lock().unwrap().clone()
+    };
+
+    // Input translate
+    if config.hotkeys.input_translate.enabled && !config.hotkeys.input_translate.shortcut.is_empty() {
+        let shortcut = config.hotkeys.input_translate.shortcut.clone();
+        let app_handle = app.clone();
+        if let Err(e) = app.global_shortcut().on_shortcut(&shortcut, move |_app, _shortcut, _event| {
+            app_handle.emit("focus-input", ()).ok();
+            if let Some(win) = app_handle.get_webview_window("main") {
+                win.show().ok();
+                win.set_focus().ok();
+            }
+        }) {
+            eprintln!("Failed to register {}: {}", shortcut, e);
         }
-    }) {
-        eprintln!("Failed to register Alt+A: {}", e);
     }
 
-    let app_handle = app.clone();
-    if let Err(e) = app.global_shortcut().on_shortcut("Alt+D", move |_app, _shortcut, _event| {
-        app_handle.emit("select-translate", ()).ok();
-        if let Some(win) = app_handle.get_webview_window("main") {
-            win.show().ok();
-            win.set_focus().ok();
+    // Select translate
+    if config.hotkeys.select_translate.enabled && !config.hotkeys.select_translate.shortcut.is_empty() {
+        let shortcut = config.hotkeys.select_translate.shortcut.clone();
+        let app_handle = app.clone();
+        if let Err(e) = app.global_shortcut().on_shortcut(&shortcut, move |_app, _shortcut, _event| {
+            app_handle.emit("select-translate", ()).ok();
+            if let Some(win) = app_handle.get_webview_window("main") {
+                win.show().ok();
+                win.set_focus().ok();
+            }
+        }) {
+            eprintln!("Failed to register {}: {}", shortcut, e);
         }
-    }) {
-        eprintln!("Failed to register Alt+D: {}", e);
     }
 
-    let app_handle = app.clone();
-    if let Err(e) = app.global_shortcut().on_shortcut("Alt+S", move |_app, _shortcut, _event| {
-        app_handle.emit("trigger-screenshot", ()).ok();
-    }) {
-        eprintln!("Failed to register Alt+S: {}", e);
+    // Screenshot translate
+    if config.hotkeys.screenshot_translate.enabled && !config.hotkeys.screenshot_translate.shortcut.is_empty() {
+        let shortcut = config.hotkeys.screenshot_translate.shortcut.clone();
+        let app_handle = app.clone();
+        if let Err(e) = app.global_shortcut().on_shortcut(&shortcut, move |_app, _shortcut, _event| {
+            app_handle.emit("trigger-screenshot", ()).ok();
+        }) {
+            eprintln!("Failed to register {}: {}", shortcut, e);
+        }
+    }
+}
+
+fn setup_shortcuts(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    register_shortcuts_from_config(app);
+    Ok(())
+}
+
+#[tauri::command]
+fn update_shortcuts(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+    // Unregister all existing shortcuts
+    if let Err(e) = app.global_shortcut().unregister_all() {
+        eprintln!("Failed to unregister shortcuts: {}", e);
     }
 
+    // Re-register from current config
+    register_shortcuts_from_config(&app);
     Ok(())
 }
 
@@ -654,6 +688,7 @@ pub fn run() {
             get_screenshot_base64,
             ocr_selected_region,
             cancel_screenshot,
+            update_shortcuts,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

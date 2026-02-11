@@ -146,17 +146,39 @@
       <!-- Hotkeys -->
       <div class="settings-group">
         <h3>快捷键</h3>
+        <p class="service-desc" style="margin-bottom: 8px; padding: 0 4px;">点击输入框后按下快捷键组合即可设置</p>
         <div class="setting-item">
-          <label>输入翻译</label>
-          <span class="hotkey-badge">Alt + A</span>
+          <div class="hotkey-label-row">
+            <label class="toggle">
+              <input type="checkbox" id="hotkeyInputEnabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <label>输入翻译</label>
+          </div>
+          <input type="text" id="hotkeyInputShortcut" class="hotkey-input" readonly placeholder="按下快捷键..." value="Alt+A"
+            data-hotkey-id="input_translate">
         </div>
         <div class="setting-item">
-          <label>划词翻译</label>
-          <span class="hotkey-badge">Alt + D</span>
+          <div class="hotkey-label-row">
+            <label class="toggle">
+              <input type="checkbox" id="hotkeySelectEnabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <label>划词翻译</label>
+          </div>
+          <input type="text" id="hotkeySelectShortcut" class="hotkey-input" readonly placeholder="按下快捷键..."
+            value="Alt+D" data-hotkey-id="select_translate">
         </div>
         <div class="setting-item">
-          <label>截图翻译</label>
-          <span class="hotkey-badge">Alt + S</span>
+          <div class="hotkey-label-row">
+            <label class="toggle">
+              <input type="checkbox" id="hotkeyScreenshotEnabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <label>截图翻译</label>
+          </div>
+          <input type="text" id="hotkeyScreenshotShortcut" class="hotkey-input" readonly placeholder="按下快捷键..."
+            value="Alt+S" data-hotkey-id="screenshot_translate">
         </div>
       </div>
 

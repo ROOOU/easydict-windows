@@ -12,11 +12,16 @@ pub struct AppConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HotkeyEntry {
+    pub enabled: bool,
+    pub shortcut: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HotkeyConfig {
-    pub input_translate: String,
-    pub select_translate: String,
-    pub screenshot_ocr: String,
-    pub screenshot_translate: String,
+    pub input_translate: HotkeyEntry,
+    pub select_translate: HotkeyEntry,
+    pub screenshot_translate: HotkeyEntry,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,10 +86,18 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             hotkeys: HotkeyConfig {
-                input_translate: "Alt+A".to_string(),
-                select_translate: "Alt+D".to_string(),
-                screenshot_ocr: "Alt+Shift+S".to_string(),
-                screenshot_translate: "Alt+S".to_string(),
+                input_translate: HotkeyEntry {
+                    enabled: true,
+                    shortcut: "Alt+A".to_string(),
+                },
+                select_translate: HotkeyEntry {
+                    enabled: true,
+                    shortcut: "Alt+D".to_string(),
+                },
+                screenshot_translate: HotkeyEntry {
+                    enabled: true,
+                    shortcut: "Alt+S".to_string(),
+                },
             },
             services: ServicesConfig {
                 google: ServiceEntry {
