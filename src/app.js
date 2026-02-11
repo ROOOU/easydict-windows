@@ -339,7 +339,7 @@ async function doOCR() {
     // 4. OCRs the image
     // 5. Emits ocr-result/ocr-error events
     // 6. Shows main window
-    await invoke('screenshot_ocr');
+    await invoke('start_screenshot_ocr');
   } catch (e) {
     await getCurrentWindow().show().catch(() => { });
     await getCurrentWindow().setFocus().catch(() => { });
