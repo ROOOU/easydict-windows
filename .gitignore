@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Rust build artifacts
+src-tauri/target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Tauri generated schemas (can be regenerated)
+src-tauri/gen/schemas/
+
+# Debug artifacts
+*.pdb

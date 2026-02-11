@@ -1,0 +1,47 @@
+[package]
+name = "easydict-win"
+version = "1.0.0"
+description = "Windows Desktop Translation App"
+authors = ["user"]
+edition = "2021"
+
+[lib]
+name = "easydict_win_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
+urlencoding = "2"
+arboard = "3"
+dirs = "5"
+rand = "0.8"
+md5 = "0.7"
+xcap = "0.0.14"
+image = "0.25"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+  "Media_Ocr",
+  "Media_SpeechSynthesis",
+  "Storage_Streams",
+  "Graphics_Imaging",
+  "Foundation",
+  "Globalization",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_Foundation",
+] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

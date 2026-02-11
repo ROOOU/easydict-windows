@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 36px;
+            height: 36px;
+            background: transparent;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .float-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 12px rgba(99, 102, 241, 0.5);
+            transition: transform 0.15s, box-shadow 0.15s;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .float-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.7);
+        }
+
+        .float-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="float-btn" id="floatBtn">
+        <svg viewBox="0 0 24 24">
+            <path
+                d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z" />
+        </svg>
+    </div>
+    <script>
+        const { invoke } = window.__TAURI__.core;
+        const { getCurrentWindow } = window.__TAURI__.window;
+
+        document.getElementById('floatBtn').addEventListener('click', async () => {
+            await invoke('float_icon_clicked');
+            getCurrentWindow().hide();
+        });
+
+        // Auto-hide after 3 seconds if no interaction
+        let hideTimer = setTimeout(() => { getCurrentWindow().hide(); }, 3000);
+        document.getElementById('floatBtn').addEventListener('mouseenter', () => {
+            clearTimeout(hideTimer);
+        });
+        document.getElementById('floatBtn').addEventListener('mouseleave', () => {
+            hideTimer = setTimeout(() => { getCurrentWindow().hide(); }, 1500);
+        });
+    </script>
+</body>
+
+</html>

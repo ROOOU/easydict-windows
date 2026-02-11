@@ -1,0 +1,35 @@
+{
+    "identifier": "default",
+    "description": "Default permissions for the app",
+    "windows": [
+        "main",
+        "screenshot-select",
+        "float-icon"
+    ],
+    "permissions": [
+        "core:default",
+        "global-shortcut:default",
+        "global-shortcut:allow-register",
+        "global-shortcut:allow-unregister",
+        "global-shortcut:allow-is-registered",
+        "clipboard-manager:default",
+        "clipboard-manager:allow-read-text",
+        "clipboard-manager:allow-write-text",
+        "shell:default",
+        "core:window:default",
+        "core:window:allow-close",
+        "core:window:allow-hide",
+        "core:window:allow-show",
+        "core:window:allow-minimize",
+        "core:window:allow-set-always-on-top",
+        "core:window:allow-set-focus",
+        "core:window:allow-start-dragging",
+        "core:window:allow-set-size",
+        "core:window:allow-center",
+        "core:window:allow-is-visible",
+        "core:window:allow-set-decorations",
+        "core:event:default",
+        "core:event:allow-listen",
+        "core:event:allow-emit"
+    ]
+}

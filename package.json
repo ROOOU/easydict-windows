@@ -1,0 +1,16 @@
+{
+  "name": "easydict-win",
+  "version": "1.0.0",
+  "description": "Windows Desktop Translation App",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2"
+  }
+}
