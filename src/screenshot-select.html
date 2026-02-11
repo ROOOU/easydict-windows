@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>截图选区</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            cursor: crosshair;
+            background: transparent;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #hint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-family: sans-serif;
+            font-size: 16px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 20;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #sizeLabel {
+            position: fixed;
+            color: #fff;
+            font-family: monospace;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            z-index: 20;
+            pointer-events: none;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="hint">拖动鼠标选择区域 · 按 Esc 取消</div>
+    <div id="sizeLabel"></div>
+
+    <script>
+        const { invoke } = window.__TAURI__.core;
+        const { getCurrentWindow } = window.__TAURI__.window;
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const hint = document.getElementById('hint');
+        const sizeLabel = document.getElementById('sizeLabel');
+
+        let img = new Image();
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        let currentX = 0, currentY = 0;
+        let scaleX = 1, scaleY = 1;
+        let imageLoaded = false;
+
+        async function init() {
+            try {
+                const b64 = await invoke('get_screenshot_base64');
+                img.onload = () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                    scaleX = img.naturalWidth / canvas.width;
+                    scaleY = img.naturalHeight / canvas.height;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    // Darken the whole image initially
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    imageLoaded = true;
+                };
+                img.src = 'data:image/png;base64,' + b64;
+            } catch (e) {
+                console.error('Failed to load screenshot:', e);
+                cancel();
+            }
+        }
+
+        function drawSelection() {
+            if (!imageLoaded) return;
+
+            const x = Math.min(startX, currentX);
+            const y = Math.min(startY, currentY);
+            const w = Math.abs(currentX - startX);
+            const h = Math.abs(currentY - startY);
+
+            // Redraw image
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            // Dark overlay
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Clear the selected region (show original brightness)
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.clip();
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
+
+            // Border around selection
+            ctx.strokeStyle = '#4fc3f7';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, w, h);
+
+            // Size label
+            if (w > 5 && h > 5) {
+                const realW = Math.round(w * scaleX);
+                const realH = Math.round(h * scaleY);
+                sizeLabel.textContent = `${realW} × ${realH}`;
+                sizeLabel.style.display = 'block';
+                sizeLabel.style.left = (x + w / 2 - 30) + 'px';
+                sizeLabel.style.top = (y + h + 8) + 'px';
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            hint.style.opacity = '0';
+            isDrawing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            currentX = startX;
+            currentY = startY;
+            sizeLabel.style.display = 'none';
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            currentX = e.clientX;
+            currentY = e.clientY;
+            drawSelection();
+        });
+
+        canvas.addEventListener('mouseup', async (e) => {
+            if (!isDrawing) return;
+            isDrawing = false;
+
+            const x = Math.round(Math.min(startX, currentX) * scaleX);
+            const y = Math.round(Math.min(startY, currentY) * scaleY);
+            const w = Math.round(Math.abs(currentX - startX) * scaleX);
+            const h = Math.round(Math.abs(currentY - startY) * scaleY);
+
+            if (w < 10 || h < 10) {
+                // Selection too small, ignore
+                // Redraw with overlay
+                if (imageLoaded) {
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                hint.style.opacity = '1';
+                sizeLabel.style.display = 'none';
+                return;
+            }
+
+            try {
+                // Close this window first
+                await getCurrentWindow().close();
+                // Then trigger OCR on the selected region
+                await invoke('ocr_selected_region', { x, y, w, h });
+            } catch (e) {
+                console.error('OCR error:', e);
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                cancel();
+            }
+        });
+
+        async function cancel() {
+            try {
+                await invoke('cancel_screenshot');
+            } catch (e) {
+                console.error('Cancel error:', e);
+            }
+            await getCurrentWindow().close();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
