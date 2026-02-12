@@ -495,6 +495,11 @@ fn start_select_monitor(app: &AppHandle, monitoring_flag: Arc<AtomicBool>) {
                     } else if new_clip != old_clip {
                         prev_clipboard = new_clip;
                     }
+                } else {
+                    // Simple click (no drag, no double-click) = deselected text, hide float icon
+                    if let Some(win) = app_handle.get_webview_window("float-icon") {
+                        win.hide().ok();
+                    }
                 }
 
                 last_click_time = std::time::Instant::now();
