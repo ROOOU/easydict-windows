@@ -17,7 +17,7 @@
             height: 100vh;
             overflow: hidden;
             cursor: crosshair;
-            background: transparent;
+            background: #000;
             user-select: none;
         }
 
@@ -78,31 +78,41 @@
         let currentX = 0, currentY = 0;
         let scaleX = 1, scaleY = 1;
         let imageLoaded = false;
-        let completed = false; // Track if OCR was submitted or cancelled properly
+        let completed = false;
 
-        async function init() {
+        // Called from Rust via evaluate_script — resets state and loads new screenshot
+        window.resetAndInit = async function () {
+            // Reset all state
+            isDrawing = false;
+            startX = 0; startY = 0;
+            currentX = 0; currentY = 0;
+            imageLoaded = false;
+            completed = false;
+            hint.style.opacity = '1';
+            sizeLabel.style.display = 'none';
+
             try {
-                const b64 = await invoke('get_screenshot_base64');
+                const dataUrl = await invoke('get_screenshot_base64');
+                img = new Image();
                 img.onload = () => {
                     canvas.width = window.innerWidth;
                     canvas.height = window.innerHeight;
                     scaleX = img.naturalWidth / canvas.width;
                     scaleY = img.naturalHeight / canvas.height;
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    // Darken the whole image initially
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     imageLoaded = true;
-                    // Show window now that the image is ready (avoids white flash)
+                    // Now show the window (image is ready, no white flash)
                     getCurrentWindow().show();
                     getCurrentWindow().setFocus();
                 };
-                img.src = b64; // Already a full data URL from backend
+                img.src = dataUrl;
             } catch (e) {
                 console.error('Failed to load screenshot:', e);
-                cancel();
+                hideAndReset();
             }
-        }
+        };
 
         function drawSelection() {
             if (!imageLoaded) return;
@@ -112,14 +122,10 @@
             const w = Math.abs(currentX - startX);
             const h = Math.abs(currentY - startY);
 
-            // Redraw image
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-            // Dark overlay
             ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Clear the selected region (show original brightness)
             ctx.save();
             ctx.beginPath();
             ctx.rect(x, y, w, h);
@@ -127,12 +133,10 @@
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             ctx.restore();
 
-            // Border around selection
             ctx.strokeStyle = '#4fc3f7';
             ctx.lineWidth = 2;
             ctx.strokeRect(x, y, w, h);
 
-            // Size label
             if (w > 5 && h > 5) {
                 const realW = Math.round(w * scaleX);
                 const realH = Math.round(h * scaleY);
@@ -171,7 +175,6 @@
             const h = Math.round(Math.abs(currentY - startY) * scaleY);
 
             if (w < 10 || h < 10) {
-                // Selection too small, reset
                 if (imageLoaded) {
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
@@ -182,34 +185,25 @@
                 return;
             }
 
-            // Mark completed BEFORE invoking so the unload handler doesn't also cancel
             completed = true;
 
             try {
-                // Call OCR FIRST, then close window (closing first kills JS context)
                 await invoke('ocr_selected_region', { x, y, w, h });
             } catch (e) {
                 console.error('OCR error:', e);
             }
 
-            getCurrentWindow().close().catch(() => { });
+            // Hide instead of close (window is reused)
+            getCurrentWindow().hide();
         });
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                cancel();
+                hideAndReset();
             }
         });
 
-        // Safety net: if the window closes without completing OCR, reset the flag
-        window.addEventListener('beforeunload', () => {
-            if (!completed) {
-                // Use synchronous-style fire-and-forget
-                invoke('cancel_screenshot').catch(() => { });
-            }
-        });
-
-        async function cancel() {
+        async function hideAndReset() {
             if (completed) return;
             completed = true;
             try {
@@ -217,10 +211,10 @@
             } catch (e) {
                 console.error('Cancel error:', e);
             }
-            getCurrentWindow().close().catch(() => { });
+            getCurrentWindow().hide();
         }
 
-        init();
+        // No auto-init — Rust calls resetAndInit() via evaluate_script
     </script>
 </body>
 

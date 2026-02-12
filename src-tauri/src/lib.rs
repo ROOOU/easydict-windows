@@ -670,12 +670,7 @@ fn register_shortcuts_from_config(app: &AppHandle) {
                 if let Some(win) = app.get_webview_window("main") {
                     win.hide().ok();
                 }
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-                // Destroy any existing screenshot-select window
-                if let Some(win) = app.get_webview_window("screenshot-select") {
-                    win.destroy().ok();
-                }
+                tokio::time::sleep(std::time::Duration::from_millis(80)).await;
 
                 // Capture screen (raw RGBA)
                 let capture_result = tokio::task::spawn_blocking(|| {
@@ -700,26 +695,20 @@ fn register_shortcuts_from_config(app: &AppHandle) {
                     *state.screenshot_data.lock().unwrap() = Some(ScreenshotData { rgba, width: w, height: h });
                 }
 
-                // Create selection window (hidden, will show after image loads)
-                let url = WebviewUrl::App("screenshot-select.html".into());
-                if let Err(e) = WebviewWindowBuilder::new(&app, "screenshot-select", url)
-                    .title("截图选区")
-                    .maximized(true)
-                    .position(0.0, 0.0)
-                    .decorations(false)
-                    .always_on_top(true)
-                    .resizable(false)
-                    .skip_taskbar(true)
-                    .focused(true)
-                    .visible(false)
-                    .build()
-                {
-                    eprintln!("[OCR] Failed to create window: {}", e);
-                    let state = app.state::<AppState>();
-                    state.screenshot_in_progress.store(false, Ordering::SeqCst);
-                    if let Some(win) = app.get_webview_window("main") {
-                        win.show().ok();
+                // Trigger resetAndInit on the pre-created window via evaluate_script
+                if let Some(win) = app.get_webview_window("screenshot-select") {
+                    if let Err(e) = win.eval("resetAndInit()") {
+                        eprintln!("[OCR] evaluate_script error: {}", e);
+                        let state = app.state::<AppState>();
+                        state.screenshot_in_progress.store(false, Ordering::SeqCst);
+                        if let Some(win) = app.get_webview_window("main") {
+                            win.show().ok();
+                        }
                     }
+                } else {
+                    eprintln!("[OCR] screenshot-select window not found, creating...");
+                    // Fallback: create the window if it doesn't exist
+                    create_screenshot_window(&app);
                 }
             });
         }) {
@@ -745,6 +734,24 @@ fn update_shortcuts(app: AppHandle) -> Result<(), String> {
     // Re-register from current config
     register_shortcuts_from_config(&app);
     Ok(())
+}
+
+/// Pre-create the screenshot selection window (hidden)
+fn create_screenshot_window(app: &AppHandle) {
+    let url = WebviewUrl::App("screenshot-select.html".into());
+    if let Err(e) = WebviewWindowBuilder::new(app, "screenshot-select", url)
+        .title("截图选区")
+        .maximized(true)
+        .position(0.0, 0.0)
+        .decorations(false)
+        .always_on_top(true)
+        .resizable(false)
+        .skip_taskbar(true)
+        .visible(false)
+        .build()
+    {
+        eprintln!("[OCR] Failed to pre-create screenshot window: {}", e);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -787,6 +794,8 @@ pub fn run() {
             setup_tray(&handle)?;
             setup_shortcuts(&handle)?;
             start_select_monitor(&handle, monitoring.clone());
+            // Pre-create the screenshot window for instant activation
+            create_screenshot_window(&handle);
             Ok(())
         })
         .run(tauri::generate_context!())
