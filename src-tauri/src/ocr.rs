@@ -72,8 +72,8 @@ pub fn ocr_from_png_bytes(_png_bytes: &[u8], _lang: &str) -> Result<String, Stri
     Err("OCR is only supported on Windows".to_string())
 }
 
-/// Capture a screenshot of the entire primary screen and return PNG bytes
-pub fn capture_screen() -> Result<Vec<u8>, String> {
+/// Capture a screenshot of the entire primary screen and return raw RGBA bytes + dimensions
+pub fn capture_screen() -> Result<(Vec<u8>, u32, u32), String> {
     let monitors = xcap::Monitor::all().map_err(|e| format!("Monitor error: {}", e))?;
     let monitor = monitors
         .into_iter()
@@ -85,16 +85,8 @@ pub fn capture_screen() -> Result<Vec<u8>, String> {
         .capture_image()
         .map_err(|e| format!("Capture error: {}", e))?;
 
-    let mut png_bytes: Vec<u8> = Vec::new();
-    let encoder = image::codecs::png::PngEncoder::new(&mut png_bytes);
-    image::ImageEncoder::write_image(
-        encoder,
-        image.as_raw(),
-        image.width(),
-        image.height(),
-        image::ExtendedColorType::Rgba8,
-    )
-    .map_err(|e| format!("PNG encode error: {}", e))?;
-
-    Ok(png_bytes)
+    let w = image.width();
+    let h = image.height();
+    let rgba = image.into_raw();
+    Ok((rgba, w, h))
 }

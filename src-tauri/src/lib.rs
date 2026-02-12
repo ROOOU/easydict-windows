@@ -15,11 +15,17 @@ use tauri::{
     WebviewWindowBuilder, WebviewUrl,
 };
 
+pub struct ScreenshotData {
+    pub rgba: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+
 pub struct AppState {
     pub config: Mutex<AppConfig>,
     pub client: Client,
     pub clipboard_monitoring: Arc<AtomicBool>,
-    pub screenshot_data: Mutex<Vec<u8>>,
+    pub screenshot_data: Mutex<Option<ScreenshotData>>,
     pub screenshot_in_progress: AtomicBool,
 }
 
@@ -183,19 +189,18 @@ async fn start_screenshot_ocr(app: AppHandle, state: tauri::State<'_, AppState>)
     if let Some(win) = app.get_webview_window("main") {
         win.hide().ok();
     }
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    // Destroy any existing screenshot-select window first
+    // Destroy any existing screenshot-select window
     if let Some(win) = app.get_webview_window("screenshot-select") {
         win.destroy().ok();
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 
-    // Capture the screen
-    let png_bytes = match tokio::task::spawn_blocking(|| {
+    // Capture the screen (raw RGBA, no PNG encoding)
+    let (rgba, w, h) = match tokio::task::spawn_blocking(|| {
         ocr::capture_screen()
     }).await {
-        Ok(Ok(bytes)) => bytes,
+        Ok(Ok(data)) => data,
         Ok(Err(e)) => {
             state.screenshot_in_progress.store(false, Ordering::SeqCst);
             if let Some(win) = app.get_webview_window("main") {
@@ -214,10 +219,10 @@ async fn start_screenshot_ocr(app: AppHandle, state: tauri::State<'_, AppState>)
         }
     };
 
-    eprintln!("[OCR] Screenshot captured: {} bytes", png_bytes.len());
+    eprintln!("[OCR] Screenshot captured: {}x{}, {} bytes RGBA", w, h, rgba.len());
 
-    // Store the PNG bytes for OCR processing later
-    *state.screenshot_data.lock().unwrap() = png_bytes;
+    // Store raw RGBA data for later processing
+    *state.screenshot_data.lock().unwrap() = Some(ScreenshotData { rgba, width: w, height: h });
 
     // Open the region selection window
     let url = WebviewUrl::App("screenshot-select.html".into());
@@ -249,17 +254,22 @@ async fn start_screenshot_ocr(app: AppHandle, state: tauri::State<'_, AppState>)
     Ok(())
 }
 
-/// Return screenshot as base64 string for the selection window canvas
+/// Return screenshot as base64 JPEG string for the selection window canvas (fast)
 #[tauri::command]
 fn get_screenshot_base64(state: tauri::State<AppState>) -> Result<String, String> {
     use base64::Engine;
-    let data = state.screenshot_data.lock().unwrap();
-    if data.is_empty() {
-        return Err("No screenshot data".to_string());
-    }
-    let b64 = base64::engine::general_purpose::STANDARD.encode(&*data);
-    eprintln!("[OCR] get_screenshot_base64: {} chars", b64.len());
-    Ok(b64)
+    let guard = state.screenshot_data.lock().unwrap();
+    let data = guard.as_ref().ok_or("No screenshot data")?;
+
+    // Encode raw RGBA to JPEG (much faster than PNG for preview)
+    let mut jpeg_buf: Vec<u8> = Vec::new();
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_buf, 85);
+    encoder.encode(&data.rgba, data.width, data.height, image::ExtendedColorType::Rgba8)
+        .map_err(|e| format!("JPEG encode error: {}", e))?;
+
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_buf);
+    eprintln!("[OCR] get_screenshot_base64: JPEG {}KB, base64 {} chars", jpeg_buf.len() / 1024, b64.len());
+    Ok(format!("data:image/jpeg;base64,{}", b64))
 }
 
 /// Step 2: OCR the selected region and send result to main window
@@ -271,40 +281,47 @@ async fn ocr_selected_region(
 ) -> Result<(), String> {
     eprintln!("[OCR] ocr_selected_region: x={}, y={}, w={}, h={}", x, y, w, h);
 
-    let png_bytes = state.screenshot_data.lock().unwrap().clone();
-    if png_bytes.is_empty() {
-        return Err("No screenshot data".to_string());
-    }
+    // Extract raw RGBA data and dimensions
+    let (rgba, img_w, img_h) = {
+        let guard = state.screenshot_data.lock().unwrap();
+        let data = guard.as_ref().ok_or("No screenshot data".to_string())?;
+        (data.rgba.clone(), data.width, data.height)
+    };
 
     let result = tokio::task::spawn_blocking(move || {
-        let img = image::load_from_memory(&png_bytes)
-            .map_err(|e| format!("Image decode error: {}", e))?;
-
-        let img_w = img.width();
-        let img_h = img.height();
+        // Clamp crop region to image bounds
         let cx = x.min(img_w.saturating_sub(1));
         let cy = y.min(img_h.saturating_sub(1));
         let cw = w.min(img_w.saturating_sub(cx));
         let ch = h.min(img_h.saturating_sub(cy));
 
         eprintln!("[OCR] Cropping: {}x{} at ({},{})", cw, ch, cx, cy);
-        let cropped = image::imageops::crop_imm(&img, cx, cy, cw, ch).to_image();
 
-        let mut buf: Vec<u8> = Vec::new();
-        let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+        // Crop directly from raw RGBA buffer (no image decode needed)
+        let stride = (img_w * 4) as usize;
+        let mut cropped_rgba: Vec<u8> = Vec::with_capacity((cw * ch * 4) as usize);
+        for row in cy..(cy + ch) {
+            let start = row as usize * stride + cx as usize * 4;
+            let end = start + cw as usize * 4;
+            cropped_rgba.extend_from_slice(&rgba[start..end]);
+        }
+
+        // Only PNG-encode the small cropped region for OCR
+        let mut png_buf: Vec<u8> = Vec::new();
+        let encoder = image::codecs::png::PngEncoder::new(&mut png_buf);
         image::ImageEncoder::write_image(
             encoder,
-            cropped.as_raw(),
-            cropped.width(),
-            cropped.height(),
+            &cropped_rgba,
+            cw,
+            ch,
             image::ExtendedColorType::Rgba8,
         ).map_err(|e| format!("PNG encode error: {}", e))?;
 
-        ocr::ocr_from_png_bytes(&buf, "auto")
+        ocr::ocr_from_png_bytes(&png_buf, "auto")
     }).await.map_err(|e| format!("Task join error: {}", e))?;
 
     // Clear stored screenshot and reset flag
-    state.screenshot_data.lock().unwrap().clear();
+    *state.screenshot_data.lock().unwrap() = None;
     state.screenshot_in_progress.store(false, Ordering::SeqCst);
 
     // Send result via GLOBAL event
@@ -332,7 +349,7 @@ async fn ocr_selected_region(
 #[tauri::command]
 fn cancel_screenshot(app: AppHandle, state: tauri::State<AppState>) {
     eprintln!("[OCR] cancel_screenshot called");
-    state.screenshot_data.lock().unwrap().clear();
+    *state.screenshot_data.lock().unwrap() = None;
     state.screenshot_in_progress.store(false, Ordering::SeqCst);
     if let Some(win) = app.get_webview_window("main") {
         win.show().ok();
@@ -667,7 +684,7 @@ pub fn run() {
         config: Mutex::new(config),
         client,
         clipboard_monitoring: monitoring.clone(),
-        screenshot_data: Mutex::new(Vec::new()),
+        screenshot_data: Mutex::new(None),
         screenshot_in_progress: AtomicBool::new(false),
     };
 

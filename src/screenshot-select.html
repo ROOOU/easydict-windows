@@ -94,7 +94,7 @@
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     imageLoaded = true;
                 };
-                img.src = 'data:image/png;base64,' + b64;
+                img.src = b64; // Already a full data URL from backend
             } catch (e) {
                 console.error('Failed to load screenshot:', e);
                 cancel();
