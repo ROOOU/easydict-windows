@@ -88,7 +88,7 @@
             currentX = 0; currentY = 0;
             imageLoaded = false;
             completed = false;
-            hint.style.opacity = '1';
+            hint.style.opacity = '0';
             sizeLabel.style.display = 'none';
 
             try {
@@ -99,11 +99,9 @@
                     canvas.height = window.innerHeight;
                     scaleX = img.naturalWidth / canvas.width;
                     scaleY = img.naturalHeight / canvas.height;
+                    // Draw at full brightness — looks identical to real screen
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
                     imageLoaded = true;
-                    // Now show the window (image is ready, no white flash)
                     getCurrentWindow().show();
                     getCurrentWindow().setFocus();
                 };
@@ -176,11 +174,9 @@
 
             if (w < 10 || h < 10) {
                 if (imageLoaded) {
+                    // Reset to full brightness (looks like real screen)
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
-                hint.style.opacity = '1';
                 sizeLabel.style.display = 'none';
                 return;
             }
