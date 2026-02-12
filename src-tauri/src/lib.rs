@@ -189,7 +189,7 @@ async fn start_screenshot_ocr(app: AppHandle, state: tauri::State<'_, AppState>)
     if let Some(win) = app.get_webview_window("main") {
         win.hide().ok();
     }
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
 
     // Destroy any existing screenshot-select window
     if let Some(win) = app.get_webview_window("screenshot-select") {
@@ -261,11 +261,16 @@ fn get_screenshot_base64(state: tauri::State<AppState>) -> Result<String, String
     let guard = state.screenshot_data.lock().unwrap();
     let data = guard.as_ref().ok_or("No screenshot data")?;
 
-    // Encode raw RGBA to JPEG (much faster than PNG for preview)
+    // Convert RGBA to RGB (JPEG doesn't support alpha)
+    let rgb: Vec<u8> = data.rgba.chunks_exact(4).flat_map(|px| [px[0], px[1], px[2]]).collect();
+
+    // Encode as JPEG (much faster than PNG for preview)
     let mut jpeg_buf: Vec<u8> = Vec::new();
-    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_buf, 85);
-    encoder.encode(&data.rgba, data.width, data.height, image::ExtendedColorType::Rgba8)
-        .map_err(|e| format!("JPEG encode error: {}", e))?;
+    {
+        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_buf, 80);
+        encoder.encode(&rgb, data.width, data.height, image::ExtendedColorType::Rgb8)
+            .map_err(|e| format!("JPEG encode error: {}", e))?;
+    }
 
     let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_buf);
     eprintln!("[OCR] get_screenshot_base64: JPEG {}KB, base64 {} chars", jpeg_buf.len() / 1024, b64.len());
