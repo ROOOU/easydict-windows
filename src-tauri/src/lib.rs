@@ -648,12 +648,75 @@ fn register_shortcuts_from_config(app: &AppHandle) {
         }
     }
 
-    // Screenshot translate
+    // Screenshot translate - directly trigger capture (no JS roundtrip)
     if config.hotkeys.screenshot_translate.enabled && !config.hotkeys.screenshot_translate.shortcut.is_empty() {
         let shortcut = config.hotkeys.screenshot_translate.shortcut.clone();
         let app_handle = app.clone();
         if let Err(e) = app.global_shortcut().on_shortcut(shortcut.as_str(), move |_app, _shortcut, _event| {
-            app_handle.emit("trigger-screenshot", ()).ok();
+            let app = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                // Check and set the in-progress flag
+                let state = app.state::<AppState>();
+                if state.screenshot_in_progress.swap(true, Ordering::SeqCst) {
+                    return; // Already in progress
+                }
+
+                // Hide main window
+                if let Some(win) = app.get_webview_window("main") {
+                    win.hide().ok();
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+                // Destroy any existing screenshot-select window
+                if let Some(win) = app.get_webview_window("screenshot-select") {
+                    win.destroy().ok();
+                }
+
+                // Capture screen (raw RGBA)
+                let capture_result = tokio::task::spawn_blocking(|| {
+                    ocr::capture_screen()
+                }).await;
+
+                let (rgba, w, h) = match capture_result {
+                    Ok(Ok(data)) => data,
+                    _ => {
+                        let state = app.state::<AppState>();
+                        state.screenshot_in_progress.store(false, Ordering::SeqCst);
+                        if let Some(win) = app.get_webview_window("main") {
+                            win.show().ok();
+                        }
+                        return;
+                    }
+                };
+
+                // Store data
+                {
+                    let state = app.state::<AppState>();
+                    *state.screenshot_data.lock().unwrap() = Some(ScreenshotData { rgba, width: w, height: h });
+                }
+
+                // Create selection window (hidden, will show after image loads)
+                let url = WebviewUrl::App("screenshot-select.html".into());
+                if let Err(e) = WebviewWindowBuilder::new(&app, "screenshot-select", url)
+                    .title("截图选区")
+                    .maximized(true)
+                    .position(0.0, 0.0)
+                    .decorations(false)
+                    .always_on_top(true)
+                    .resizable(false)
+                    .skip_taskbar(true)
+                    .focused(true)
+                    .visible(false)
+                    .build()
+                {
+                    eprintln!("[OCR] Failed to create window: {}", e);
+                    let state = app.state::<AppState>();
+                    state.screenshot_in_progress.store(false, Ordering::SeqCst);
+                    if let Some(win) = app.get_webview_window("main") {
+                        win.show().ok();
+                    }
+                }
+            });
         }) {
             eprintln!("Failed to register {}: {}", shortcut, e);
         }
