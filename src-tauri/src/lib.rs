@@ -235,6 +235,7 @@ async fn start_screenshot_ocr(app: AppHandle, state: tauri::State<'_, AppState>)
         .resizable(false)
         .skip_taskbar(true)
         .focused(true)
+        .visible(false)
         .build()
     {
         Ok(_) => {

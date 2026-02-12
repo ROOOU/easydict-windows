@@ -93,6 +93,9 @@
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     imageLoaded = true;
+                    // Show window now that the image is ready (avoids white flash)
+                    getCurrentWindow().show();
+                    getCurrentWindow().setFocus();
                 };
                 img.src = b64; // Already a full data URL from backend
             } catch (e) {
