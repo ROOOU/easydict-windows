@@ -38,6 +38,11 @@ jobs:
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      - name: Prepare portable exe
+        shell: pwsh
+        run: |
+          Copy-Item "src-tauri/target/release/easydict-win.exe" "src-tauri/target/release/EasyDict.Win_${{ steps.version.outputs.VERSION }}_portable.exe"
+
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
@@ -46,13 +51,16 @@ jobs:
           prerelease: false
           files: |
             src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/EasyDict.Win_${{ steps.version.outputs.VERSION }}_portable.exe
           body: |
             ## EasyDict Windows v${{ steps.version.outputs.VERSION }}
 
-            ### 📥 安装说明
-            1. 下载下方 `.exe` 安装包
-            2. 双击运行安装
-            3. 安装完成后从开始菜单或桌面启动 EasyDict
+            ### 📥 下载说明
+
+            | 文件 | 说明 |
+            |------|------|
+            | `EasyDict Win_x.x.x_x64-setup.exe` | **安装版** — 双击安装，创建桌面快捷方式和开始菜单 |
+            | `EasyDict.Win_x.x.x_portable.exe` | **便携版** — 无需安装，下载后直接双击运行 |
 
             ### ✨ 功能
             - 多引擎翻译（Google、Bing、DeepL、百度、OpenAI）
