@@ -2,6 +2,16 @@
 
 轻量级 Windows 桌面翻译工具，基于 [Tauri 2](https://tauri.app/) 构建。
 
+## 📥 下载安装
+
+[![GitHub Release](https://img.shields.io/github/v/release/ROOOU/easydict-windows?style=flat-square&label=最新版本)](https://github.com/ROOOU/easydict-windows/releases/latest)
+
+1. 前往 [Releases 页面](https://github.com/ROOOU/easydict-windows/releases/latest) 下载最新版 `.exe` 安装包
+2. 双击运行安装（无需管理员权限）
+3. 安装完成后从开始菜单或桌面启动 **EasyDict**
+
+> **系统要求：** Windows 10/11
+
 ## ✨ 功能特性
 
 - **多引擎翻译** — 同时对比多个翻译结果
