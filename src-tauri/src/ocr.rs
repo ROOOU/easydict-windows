@@ -55,16 +55,72 @@ pub fn ocr_from_png_bytes(png_bytes: &[u8], lang: &str) -> Result<String, String
         .get()
         .map_err(|e| format!("Recognize get error: {}", e))?;
 
-    let text = result
-        .Text()
-        .map_err(|e| format!("Text error: {}", e))?
-        .to_string();
+    // Extract lines with bounding box info to detect paragraph breaks
+    let lines = result.Lines().map_err(|e| format!("Lines error: {}", e))?;
+    let line_count = lines.Size().map_err(|e| format!("Lines size error: {}", e))? as usize;
 
-    if text.trim().is_empty() {
+    if line_count == 0 {
+        let text = result.Text().map_err(|e| format!("Text error: {}", e))?.to_string();
+        if text.trim().is_empty() {
+            return Err("未识别到文字。请确保截图中有清晰的文字内容。".to_string());
+        }
+        return Ok(text);
+    }
+
+    // Collect line text and vertical positions
+    struct LineInfo {
+        text: String,
+        top: f64,
+        height: f64,
+    }
+    let mut line_infos: Vec<LineInfo> = Vec::with_capacity(line_count);
+
+    for i in 0..line_count {
+        let line = lines.GetAt(i as u32).map_err(|e| format!("GetAt error: {}", e))?;
+        let text = line.Text().map_err(|e| format!("Line text error: {}", e))?.to_string();
+
+        // Get bounding box from the first word of this line
+        let words = line.Words().map_err(|e| format!("Words error: {}", e))?;
+        let word_count = words.Size().unwrap_or(0);
+        let (top, height) = if word_count > 0 {
+            // Use first word's bounding rect for vertical position
+            let first_word = words.GetAt(0).map_err(|e| format!("Word error: {}", e))?;
+            let rect = first_word.BoundingRect().map_err(|e| format!("Rect error: {}", e))?;
+            (rect.Y as f64, rect.Height as f64)
+        } else {
+            (0.0, 0.0)
+        };
+
+        if !text.trim().is_empty() {
+            line_infos.push(LineInfo { text, top, height });
+        }
+    }
+
+    if line_infos.is_empty() {
         return Err("未识别到文字。请确保截图中有清晰的文字内容。".to_string());
     }
 
-    Ok(text)
+    // Build output with paragraph detection based on vertical gaps
+    let mut output = String::new();
+    for i in 0..line_infos.len() {
+        output.push_str(&line_infos[i].text);
+
+        if i + 1 < line_infos.len() {
+            let current_bottom = line_infos[i].top + line_infos[i].height;
+            let next_top = line_infos[i + 1].top;
+            let gap = next_top - current_bottom;
+            let line_height = line_infos[i].height.max(line_infos[i + 1].height);
+
+            // If vertical gap > 0.8x line height, treat as paragraph break
+            if line_height > 0.0 && gap > line_height * 0.8 {
+                output.push_str("\n\n");
+            } else {
+                output.push('\n');
+            }
+        }
+    }
+
+    Ok(output)
 }
 
 #[cfg(not(target_os = "windows"))]
