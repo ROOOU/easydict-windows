@@ -12,7 +12,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ React 前端（app/src）                                                  │
+│ React 前端（src）                                                      │
 │   App.tsx ── 按 window label 分流：QueryWindow / SettingsApp / OcrApp   │
 │   hooks/: useSettings(全局设置缓存+订阅) useQuery(结果表)               │
 │           useLanguages useAppearance                                  │

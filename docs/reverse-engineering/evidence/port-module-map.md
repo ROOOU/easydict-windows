@@ -98,7 +98,7 @@ Tauri 插件注册顺序：`single-instance` → `log` → `opener` → `shell` 
 - 未实现/不可用 7 项：`Apple`、`AppleDictionary`、`MDict`、`ClaudeCode`、`CodexCLI`、`GitHubCopilot`、`SystemSpeech`（作为查询服务）。
 - `descriptors()` 对全部 31 项输出并标 `available: false`，保证旧设置文件往返无损。
 
-## 8. 前端（`app/src`）
+## 8. 前端（`src`）
 
 ```
 App.tsx            按窗口 label 分流 QueryWindow / SettingsApp / OcrApp

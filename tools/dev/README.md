@@ -15,15 +15,15 @@
 
 ```powershell
 # Release 端到端
-.\app\tools\dev\hotkey-harness.ps1 -WaitMs 8000
+.\tools\dev\hotkey-harness.ps1 -WaitMs 8000
 
 # 只测选区读取（先构建 selection-probe）
-cargo build --manifest-path app\src-tauri\Cargo.toml --example selection-probe
-.\app\tools\dev\probe-focused.ps1
-.\app\tools\dev\probe-focused.ps1 -RichText -ProbeArgs '--uia'
+cargo build --manifest-path src-tauri\Cargo.toml --example selection-probe
+.\tools\dev\probe-focused.ps1
+.\tools\dev\probe-focused.ps1 -RichText -ProbeArgs '--uia'
 ```
 
-`selection-probe` 的用法见 `app/src-tauri/examples/selection-probe.rs` 顶部注释。
+`selection-probe` 的用法见 `src-tauri/examples/selection-probe.rs` 顶部注释。
 
 ## 隔离资源测量（不注入输入）
 
@@ -33,7 +33,6 @@ cargo build --manifest-path app\src-tauri\Cargo.toml --example selection-probe
 探针使用与 Release 相同的 Windows GUI 子系统，避免控制台宿主污染基线；探针不进入安装包。
 
 ```powershell
-cd app
 npm run build
 cargo build --manifest-path src-tauri/Cargo.toml --release --example resource-probe --features tauri/custom-protocol
 pwsh -NoProfile -File tools/dev/resource-probe.ps1
@@ -81,9 +80,8 @@ PID 与创建时间一起标识进程，拒绝 PID 重用；进程增减使 CPU 
 > `ShellExecute`，路由匹配也按规范化后的形式处理（`split_link`）。
 
 ```powershell
-cd app
 cargo build --manifest-path src-tauri/Cargo.toml --release
-& ./tools/dev/protocol-check.ps1 -OutputPath ../docs/protocol-check-<date>.json
+& ./tools/dev/protocol-check.ps1 -OutputPath docs/protocol-check-<date>.json
 ```
 
 脚本会短暂显示翻译窗口、强杀自己启动的进程，并产生真实的翻译请求（用的是当前设置里的服务）；
