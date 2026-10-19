@@ -3,7 +3,7 @@
 > 目标：把 macOS 版的窗口体系、结果卡片、设置窗口、托盘菜单、快捷键与窗口定位规则固定下来，并给出 Windows 版逐项实现对照（含尺寸常量与按键映射）。
 >
 > 上游源码：`Easydict/objc/ViewController/**`、`Easydict/Swift/View/**`、`Easydict/App/EZConst.h`、`Easydict/Swift/Feature/Configuration/**`。
-> 移植实现：`app/src-tauri/tauri.conf.json`、`app/src-tauri/src/{window,tray,config}.rs`、`app/src/{windows,settings,ocr}/**`。
+> 移植实现：`src-tauri/tauri.conf.json`、`src-tauri/src/{window,tray,config}.rs`、`src/{windows,settings,ocr}/**`。
 >
 > 分析日期：2026-10-16
 
@@ -61,7 +61,7 @@
 
 显示时统一走：保存前台应用 → 计算安全点（`getFrameSafePoint:`）→ `setFrameOrigin:` → 提升层级 → 隐藏主窗口 → `makeKeyAndOrderFront:` → 聚焦输入框。`.former` 之外的浮动窗口在**失去焦点**时自动关闭（`windowDidResignKey:` → `closeFloatingWindowIfNotPinned:`），主窗口视作常驻。WebView 在关闭 `EZFloatingWindowIdleWebViewDiscardDelay = 60.0` 秒后被回收。
 
-### 1.3 移植实现（`app/src-tauri/src/window.rs`）
+### 1.3 移植实现（`src-tauri/src/window.rs`）
 
 ```rust
 pub enum Placement { Right, Mouse, Former, Center }
@@ -357,7 +357,7 @@ y = window.y + (window.height − showingWindowHeight)                  // 保�
 ## 9. OCR 窗口
 
 - 上游：`OCRWindowManager` 独立窗口；截图 OCR 有独立覆盖层（`Esc` 取消、`D` 复用上次选区、右键取消），静默模式不显示覆盖层；`AppleOCREngine.warmUpVisionOCRIfNeeded()` 在启动时预热。
-- 移植（`app/src/ocr/OcrApp.tsx`，窗口 620×440）：
+- 移植（`src/ocr/OcrApp.tsx`，窗口 620×440）：
   - 左栏：识别文本（**可编辑**，便于用户修正后再翻译）+ 「识别」（重跑同一来源：截图 / 剪贴板）+「显示行」开关（显示每行与置信度行数信息）+ 复制；
   - 右栏：译文（`translate_text` 产出），可自动（`auto_query_ocr_text` 为真）或手动触发；
   - `onOcrResult` 事件在窗口级订阅，因此截图 OCR / 静默截图 OCR 的结果可以直接推进来；

@@ -1,8 +1,8 @@
 # 移植侧模块 / 命令 / 事件 / 替换点清单
 
-对应卷：`05-architecture.md`。来源：`app/src-tauri/src/**` 与 `app/src/**` 源码字面量（截至 2026-10-16）。
+对应卷：`05-architecture.md`。来源：`src-tauri/src/**` 与 `src/**` 源码字面量（截至 2026-10-16）。
 
-## 1. 模块（`app/src-tauri/src/lib.rs`，16 个）
+## 1. 模块（`src-tauri/src/lib.rs`，16 个）
 
 ```rust
 pub mod commands;  pub mod config;   pub mod detect;  pub mod model;
@@ -41,7 +41,7 @@ Tauri 插件注册顺序：`single-instance` → `log` → `opener` → `shell` 
 | 历史 / 收藏（9） | `history` `search_history` `delete_history` `clear_history` `history_count` `favorites` `add_favorite` `remove_favorite` `is_favorite` |
 | 窗口 / 应用（10） | `show_window` `hide_window` `pin_window` `set_window_size` `fit_window_to_content` `open_link` `app_info` `service_order` `set_service_order` `show_service_result` |
 
-计数命令：`grep -c "^#\[tauri::command\]" app/src-tauri/src/**/*.rs` → **48**。
+计数命令：`grep -c "^#\[tauri::command\]" src-tauri/src/**/*.rs` → **48**。
 
 ## 3. 事件（`commands.rs::events`）
 

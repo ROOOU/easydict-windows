@@ -3,7 +3,7 @@
 > 目标：固定 `01-overview.md` §3 服务清单第 15–30 项中 **13 个 LLM 服务** 的类层级、共用传输、提示词、SSE 解析与逐服务端点；另说明 3 个 Agent CLI 服务为何未进入 Windows 版。
 >
 > 上游源码：`Easydict/Swift/Service/{OpenAI,OpenAI/*,CustomOpenAI,Gemini,Claude,DeepSeek,Groq,Zhipu,MiniMax,"GitHub Models",Ollama,BuiltInAI,AITool}/`
-> 移植实现：`app/src-tauri/src/service/llm/{mod,openai,claude,deepseek,prompts,ai_tool}.rs`
+> 移植实现：`src-tauri/src/service/llm/{mod,openai,claude,deepseek,prompts,ai_tool}.rs`
 >
 > 分析日期：2026-10-16
 
@@ -33,7 +33,7 @@ QueryService（@objc(EZQueryService)）
     └── ClaudeService                Claude/ClaudeService.swift       ← 直接继承 StreamService，自带 SSE 解析
 ```
 
-Windows 移植用 Rust trait 表达同一契约（`app/src-tauri/src/service/mod.rs` 的 `QueryService` + `service/llm/mod.rs` 的 `LlmTransport`），服务结构由 `openai_compatible_service!` 宏批量生成（`service/llm/openai.rs`）。
+Windows 移植用 Rust trait 表达同一契约（`src-tauri/src/service/mod.rs` 的 `QueryService` + `service/llm/mod.rs` 的 `LlmTransport`），服务结构由 `openai_compatible_service!` 宏批量生成（`service/llm/openai.rs`）。
 
 ### 0.2 `StreamService` 提供的公共能力
 

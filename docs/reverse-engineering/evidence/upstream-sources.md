@@ -1,6 +1,6 @@
 # 上游源码路径清单
 
-根：`C:\Users\12064\AppData\Local\Temp\ezsrc\Easydict-dev\Easydict\`（下称 `<root>`）。
+根：上游 [tisfeng/Easydict](https://github.com/tisfeng/Easydict) 仓库的 `Easydict/` 目录（下称 `<root>`）。
 下列文件在本次分析中被实际打开阅读（Read/Grep），用于 `01`–`05` 各卷的结论取证。
 
 ## 1. 服务基类与模型
@@ -169,4 +169,4 @@ MacPaw/OpenAI 0.5.1（revision 见 Package.resolved）
 
 ## 8. Windows 移植侧
 
-`app/src-tauri/src/**`（16 个模块）与 `app/src/**`（React 前端）；具体清单见 `port-module-map.md`。
+`src-tauri/src/**`（16 个模块）与 `src/**`（React 前端）；具体清单见 `port-module-map.md`。

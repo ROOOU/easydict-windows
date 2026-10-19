@@ -1,7 +1,7 @@
 # 提示词模板摘录
 
 对应卷：`03-ai-services.md` §2。
-来源：上游 `Swift/Service/OpenAI/StreamService+Prompt.swift`（文件头 `swiftlint:disable all`）、`Swift/Service/AITool/PolishingService.swift`、`Swift/Service/AITool/SummaryService.swift`；移植的逐字副本在 `app/src-tauri/src/service/llm/prompts.rs`（头注释要求与 Swift 字面量 diff 为空，含上游拼写错误 `Eglish`）。以下引文与原文字节一致。
+来源：上游 `Swift/Service/OpenAI/StreamService+Prompt.swift`（文件头 `swiftlint:disable all`）、`Swift/Service/AITool/PolishingService.swift`、`Swift/Service/AITool/SummaryService.swift`；移植的逐字副本在 `src-tauri/src/service/llm/prompts.rs`（头注释要求与 Swift 字面量 diff 为空，含上游拼写错误 `Eglish`）。以下引文与原文字节一致。
 
 ## 1. 系统提示词（全文）
 
@@ -51,7 +51,7 @@
 8. `Look up main {源.rawValue} example sentences and their translations, no more than 2. Mark the specific meaning in the translated sentence with *. Use the format: "{例句}:\n{example_sentences}".`
 9. `Ensure the explanation is around 50 words and the etymology is between 100 and 400 words. Total word count should not exceed 1000. Word count does not need to be displayed.` + `Do not display additional information or notes.`
 
-类型判定（`app/src-tauri/src/util/analysis.rs`，与上游 `String+Extension` 一致）：
+类型判定（`src-tauri/src/util/analysis.rs`，与上游 `String+Extension` 一致）：
 - `is_english_word`：去引号后长度 ≤ 20 且 `^[a-zA-Z]+$`
 - `is_english_phrase`：去空格后长度 ≤ 40 且词数恰为 2
 - `is_chinese_word`：去引号后长度 ≤ 4 且 `^[一-龥]+$`

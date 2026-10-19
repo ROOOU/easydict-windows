@@ -48,7 +48,7 @@
 ### 第五轮：应用内快捷键一致性（2026-10-17）
 
 - **收尾中断的桌面测试**：第四轮在正常换绑检查后中断；本轮实际读取界面确认“输入翻译”仍为测试组合 `Ctrl+Alt+B`，已通过设置页恢复为原 `Alt+A`。
-- **录制与匹配共用规则**：将物理按键转换移至 `app/src/shortcuts.ts`，设置页和查询窗口共同使用。修复 `Ctrl+Shift+1`、带 Shift 的标点组合能保存却无法触发，以及键盘布局输出字符与物理按键不一致时触发错误操作的问题。
+- **录制与匹配共用规则**：将物理按键转换移至 `src/shortcuts.ts`，设置页和查询窗口共同使用。修复 `Ctrl+Shift+1`、带 Shift 的标点组合能保存却无法触发，以及键盘布局输出字符与物理按键不一致时触发错误操作的问题。
 - **小键盘隔离**：小键盘数字、Enter 和运算符不再误触发主键盘数字、Enter、标点或导航快捷键；NumLock 关闭时仍按物理小键盘键匹配。补齐小键盘运算符录制。
 - **手动输入与输入法边界**：应用内匹配支持后端接受的 `Option`、`CommandOrControl`、`Num1`、`NumPlus` 等别名，拒绝空分段/多个主键/错误顺序；录制和匹配均忽略输入法合成事件与 `keyCode=229`。保留原 `Ctrl+plus` / `Ctrl+underscore` 字号操作。
 - 没有添加依赖；合并重复实现后，前端源码净减少约 70 行。
@@ -306,7 +306,7 @@ macOS 原版给每个查询窗口各存一套偏好（`WindowConfigurationKey.sw
 一半：Rust 配置里六个布尔字段齐全，但前端从不读取，界面也没有开关；窗口则完全不留位置。
 本轮补齐这两处。
 
-- **逐窗口显示开关真正生效**：新增 `app/src/hooks/windowSettings.ts`，按窗口类型把
+- **逐窗口显示开关真正生效**：新增 `src/hooks/windowSettings.ts`，按窗口类型把
   `inputFieldCellVisibleMain/Mini/Fixed` 与 `selectLanguageCellVisibleMain/Mini/Fixed`
   映射成一处读取（对应上游唯一的读取点 `Configuration+Extension.swift:74`）。
   `QueryWindow` 现在按自己那套值渲染输入框与语言栏；两者都关闭时头部不再留内边距和
@@ -314,7 +314,7 @@ macOS 原版给每个查询窗口各存一套偏好（`WindowConfigurationKey.sw
   坏文档不会把输入框吞掉。
 - **设置页可改**：高级页新增「逐窗口显示」一节，主窗口 / 迷你窗口 / 侧悬浮窗口
   各两个开关，对应 `WindowConfigurationView.swift` 的两项。
-- **窗口几何按窗口类型记忆**：新增 `app/src-tauri/src/window_frame.rs`。
+- **窗口几何按窗口类型记忆**：新增 `src-tauri/src/window_frame.rs`。
   `Settings.windowFrames` 以窗口类型为键保存 `{x, y, width, height}`（物理桌面坐标，
   负坐标原样保留）。**尺寸存的是客户区**，与上游存整个 frame 不同：Windows 的
   `set_size` 作用于客户区，如果照上游存外框，每次恢复都会再加一次标题栏和边框，
@@ -433,7 +433,7 @@ macOS 原版给每个查询窗口各存一套偏好（`WindowConfigurationKey.sw
   `easydict://ocr/`），此前它传的是干净写法，所以「测试通过、真实链接全废」。
   变异检查：去掉 `trim_end_matches('/')` 后该原生测试以
   `the query window stayed hidden after its deep link` 失败（25.06 秒），恢复后通过。
-- 验收脚本 `app/tools/dev/protocol-check.ps1` 改为**先普通启动注册、再经 `ShellExecute`
+- 验收脚本 `tools/dev/protocol-check.ps1` 改为**先普通启动注册、再经 `ShellExecute`
   打开链接**（原来是 `Start-Process -ArgumentList $link`，即把链接当命令行参数直接启动，
   绕过了系统规范化，正是缺陷被漏掉的原因）。真机运行
   `docs/protocol-check-20261019.json`：`status=completed`，7.0 秒，
@@ -448,10 +448,10 @@ macOS 原版给每个查询窗口各存一套偏好（`WindowConfigurationKey.sw
 - 上一轮桌面检查记录的缺口：切换标签或进入服务详情时沿用上一个页面的滚动位置，可能落在
   页面中段。根因是 `.ezy-content` 是五个标签共用的唯一滚动容器，标签切换只替换内容，
   不重置 `scrollTop`；`ServiceTab` 的列表↔详情切换同样没有重置。
-- 修复：新增 `app/src/settings/scroll.ts`（面板注册 + `resetScroll`），
+- 修复：新增 `src/settings/scroll.ts`（面板注册 + `resetScroll`），
   `SettingsApp` 在标签变化时重置，`ServiceTab` 在进入/返回详情时重置。两处都用
   `useLayoutEffect`：在绘制前重置，否则新页面会先以旧偏移画出一帧。无新依赖。
-- 回归：新增 `app/tools/settings-navigation.test.mjs` 2 项（直接执行真实模块与真实
+- 回归：新增 `tools/settings-navigation.test.mjs` 2 项（直接执行真实模块与真实
   `ServiceTab` 的 effect，覆盖挂载、进入详情、返回三处重置，以及面板卸载后不再写已失效节点）。
   变异检查：删掉 `ServiceTab` 的重置 effect 后该测试失败，恢复后通过。
 - 未验收：真实窗口中的视觉效果（滚动位置与内容高度耦合，只能在真机确认）。
@@ -493,7 +493,7 @@ macOS 原版给每个查询窗口各存一套偏好（`WindowConfigurationKey.sw
 使用 Windows Computer Use 操作本轮 Release，进程路径与构建哈希已单独核验。
 启动工具最初把显式路径解析到 `%LOCALAPPDATA%\Easydict\app.exe` 已安装版本；
 确认 PID/启动时间后结束该测试启动的进程，改以明确文件路径启动工作区 Release，
-之后全部验收对应 `app/src-tauri/target/release/app.exe`，不把旧版画面记作新构建证据。
+之后全部验收对应 `src-tauri/target/release/app.exe`，不把旧版画面记作新构建证据。
 
 - 主窗口空闲后执行标题栏拖动，随后仍可输入和按 Enter 查询。
   测试原文为 `The window is working again.`；实际看到 DeepL、Google、Bing 三份中文译文，
@@ -573,7 +573,6 @@ macOS 原版给每个查询窗口各存一套偏好（`WindowConfigurationKey.sw
 从项目根目录执行：
 
 ```powershell
-cd app
 npm run typecheck
 npm test
 cargo test --manifest-path src-tauri/Cargo.toml
@@ -783,8 +782,8 @@ cargo run --manifest-path src-tauri/Cargo.toml --example smoke-services
 已启动该 Release 完成本节记录的可见桌面检查，未运行安装器。
 `docs/protocol-check-20261019.json` 对应第十五轮的旧二进制，本轮未复跑协议脚本：
 
-- 程序：`app/src-tauri/target/release/app.exe`。
-- NSIS 安装器：`app/src-tauri/target/release/bundle/nsis/Easydict_0.1.0_x64-setup.exe`。
+- 程序：`src-tauri/target/release/app.exe`。
+- NSIS 安装器：`src-tauri/target/release/bundle/nsis/Easydict_0.1.0_x64-setup.exe`。
 
 程序为 14,804,480 字节（约 14.12 MiB），SHA-256：
 `A7D7EE33B615015F89A4EECECE2344A601E6052FEB0F40280DC0C329B386F45E`。

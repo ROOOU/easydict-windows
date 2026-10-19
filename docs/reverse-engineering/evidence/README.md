@@ -16,15 +16,15 @@
 
 | 证据 | 怎么得到的 |
 |---|---|
-| 上游源码路径 | 对 `C:\Users\12064\AppData\Local\Temp\ezsrc\Easydict-dev\Easydict\` 逐目录 `ls`/`find`，再用 Read/Grep 打开具体的 `.swift`/`.m`/`.h` 文件 |
+| 上游源码路径 | 对上游仓库的 `Easydict/` 目录逐目录 `ls`/`find`，再用 Read/Grep 打开具体的 `.swift`/`.m`/`.h` 文件 |
 | 端点与限制 | 直接读服务实现文件里的字符串常量（如 `kYoudaoTranslateURL`、`TEXT_LIMIT`）与请求构造代码；长度上限按上游的 `prefix(_:)` / `trimmingToMaxLength(_:)` 判定其计数单位后转录 |
 | 语言代码表 | 逐服务的 `supportLanguagesDictionary`（Swift）或 `const XXX: &[(Language, &str)]`（移植）整理成表；差异项在表内加粗并加注 |
-| 提示词 | 从 `Swift/Service/OpenAI/StreamService+Prompt.swift`、`AITool/PolishingService.swift`、`AITool/SummaryService.swift` 逐字复制系统提示词；少样本只登记条数与首行（体量原因），移植侧的逐字副本见 `app/src-tauri/src/service/llm/prompts.rs` |
-| 移植侧信息 | 直接读 `app/src-tauri/src/**` 与 `app/src/**`，命令/事件名与常量取自源码字面量 |
+| 提示词 | 从 `Swift/Service/OpenAI/StreamService+Prompt.swift`、`AITool/PolishingService.swift`、`AITool/SummaryService.swift` 逐字复制系统提示词；少样本只登记条数与首行（体量原因），移植侧的逐字副本见 `src-tauri/src/service/llm/prompts.rs` |
+| 移植侧信息 | 直接读 `src-tauri/src/**` 与 `src/**`，命令/事件名与常量取自源码字面量 |
 | 界面常量 | 读 `objc/ViewController/**`（窗口、结果视图）、`Swift/View/**`（设置）、`App/EZConst.h` 与 `Swift/Utility/Constants/AppConstants.swift` |
 
 ## 说明
 
-- 上游仓库为 `tisfeng/Easydict`（GPL-3.0），本次分析的本地副本位于 `C:\Users\12064\AppData\Local\Temp\ezsrc\Easydict-dev\`；证据文件里的路径均以该副本为准。
+- 上游仓库为 [tisfeng/Easydict](https://github.com/tisfeng/Easydict)（GPL-3.0）；证据文件里的路径均相对于上游仓库根目录。
 - 少数源码字面量在阅读链路中显示为脱敏占位符（例如签名算法名与某个待签字符串终结符）。本目录**只描述它们在算法中的位置与作用**，不复述其值，也不做还原；公开协议常量（如 TC3 的算法标识、Volcengine 的 `request` scope）按协议名描述。
 - 上游内置密钥的去混淆结果见 `01-overview.md` §4，本目录不重复。

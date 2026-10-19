@@ -19,7 +19,7 @@
   GitHub Models、Ollama、自定义 OpenAI 兼容服务，以及润色和总结工具。
 - **词典查询**：音标、词性释义、词形变化、近义词、反义词、常用搭配、词源和例句。
 - **多种入口**：主窗口输入、快捷键划词、截图翻译、剪贴板图片 OCR、`easydict://`
-  URL 协议；后台自动划词会显示原生小图标。
+  URL 协议，以及可开关的划词翻译小图标。
 - **原生 Windows 能力**：UI Automation 读取选区，Win32 框选截图，
   `Windows.Media.Ocr` 识别，系统语音合成兜底朗读。
 - **多窗口与托盘**：主窗口、迷你窗口、固定窗口、OCR 窗口和设置窗口；
@@ -56,7 +56,6 @@
 ### 开发运行
 
 ```powershell
-cd app
 npm install
 npm run tauri dev
 ```
@@ -64,7 +63,6 @@ npm run tauri dev
 ### 构建
 
 ```powershell
-cd app
 npm install
 .\node_modules\.bin\tauri.cmd build --bundles nsis
 ```
@@ -72,7 +70,7 @@ npm install
 安装包输出到：
 
 ```text
-app/src-tauri/target/release/bundle/nsis/
+src-tauri/target/release/bundle/nsis/
 ```
 
 ## 配置服务
@@ -98,7 +96,6 @@ app/src-tauri/target/release/bundle/nsis/
 ## 验证
 
 ```powershell
-cd app
 npm run typecheck
 npm test
 cargo test --manifest-path src-tauri/Cargo.toml
@@ -136,24 +133,23 @@ cargo test --manifest-path src-tauri/Cargo.toml
 ## 项目结构
 
 ```text
-app/
-  src/                        React 19 + TypeScript 前端
-    api.ts                    Tauri 命令类型化封装
-    windows/                  主窗口、迷你窗口、固定窗口
-    settings/                 设置页
-    ocr/                      OCR 窗口
-    hooks/                    设置、语种、查询状态
-  src-tauri/
-    src/
-      model/                  领域模型
-      config/                 设置结构、默认值和持久化
-      service/                翻译与 AI 服务
-      detect/                 语种识别
-      query/                  查询编排、取消和过期结果
-      store/                  设置、历史与收藏
-      ocr/ tts/ platform/     Windows 原生能力
-      commands.rs             Tauri 命令入口
-    tests/                    原生窗口集成测试
+src/                          React 19 + TypeScript 前端
+  api.ts                      Tauri 命令类型化封装
+  windows/                    主窗口、迷你窗口、固定窗口
+  settings/                   设置页
+  ocr/                        OCR 窗口
+  hooks/                      设置、语种、查询状态
+src-tauri/
+  src/
+    model/                    领域模型
+    config/                   设置结构、默认值和持久化
+    service/                  翻译与 AI 服务
+    detect/                   语种识别
+    query/                    查询编排、取消和过期结果
+    store/                    设置、历史与收藏
+    ocr/ tts/ platform/       Windows 原生能力
+    commands.rs               Tauri 命令入口
+  tests/                      原生窗口集成测试
 docs/
   windows-validation.md       Windows 验证与验收记录
   mac-parity.md               macOS 原版对照记录
@@ -178,6 +174,7 @@ docs/
 ## 致谢与许可
 
 本项目基于 [tisfeng/Easydict](https://github.com/tisfeng/Easydict) 的交互与实现进行
-Windows 移植。上游项目以 **GPL-3.0** 发布，本移植沿用同一许可证。
+Windows 移植。上游项目以 **GPL-3.0** 发布，本移植沿用同一许可证，完整条款见
+[`LICENSE`](LICENSE)。
 
 翻译服务、词典数据、OCR 语言包和语音资源分别受其各自服务条款与许可证约束。

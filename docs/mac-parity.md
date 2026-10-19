@@ -4,8 +4,8 @@
 
 ## 对照基线
 
-本机上游源码目录：`C:\Users\12064\AppData\Local\Temp\ezsrc\Easydict-dev`。
-它是解压目录，不是 Git checkout；未确认其 release/tag/commit，不能声称对齐某个确定发布版本。
+对照基线：上游 [tisfeng/Easydict](https://github.com/tisfeng/Easydict) 源码。
+本地分析副本未确认 release/tag/commit，不能声称对齐某个确定发布版本。
 本轮重新读取并核对以下文件的 SHA-256：
 
 | 上游相对路径 | SHA-256 |
@@ -16,8 +16,8 @@
 | `Easydict/objc/ViewController/Window/WindowManager/EZLayoutManager.m` | `51AD7426609046F9A04BB66507F42B8A491B768519CBDCEBE01945C164848295` |
 
 窗口不激活与消失规则另参考 `EZPopButtonWindow.m`、`PopButtonVisibilityController.swift`。
-Windows 主要实现为 `app/src-tauri/src/platform/auto_selection.rs`、`platform/selection.rs`、
-`app/src/windows/QueryWindow.tsx` 和 `app/src/settings/GeneralTab.tsx`。
+Windows 主要实现为 `src-tauri/src/platform/auto_selection.rs`、`platform/selection.rs`、
+`src/windows/QueryWindow.tsx` 和 `src/settings/GeneralTab.tsx`。
 
 ## 本轮对照
 

@@ -38,3 +38,9 @@ Thumbs.db
 # Python cache
 __pycache__/
 *.pyc
+
+# Internal handoff and raw diagnostic artifacts
+docs/_logs/
+docs/_thread*
+docs/_session-state.md
+docs/resource-probe-*.json

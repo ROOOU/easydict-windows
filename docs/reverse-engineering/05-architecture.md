@@ -2,7 +2,7 @@
 
 > 目标：说明 Windows 版**实际实现**的分层、查询编排、存储设计与平台替换，并列出与上游的差距。
 >
-> 代码根：`C:\Users\12064\Desktop\win翻译应用\app\`（Rust crate `app` / lib `app_lib`，Tauri v2，产品名 `Easydict`，标识符 `com.easydict.windows`）。
+> 代码根：仓库根目录（Rust crate `app` / lib `app_lib`，Tauri v2，产品名 `Easydict`，标识符 `com.easydict.windows`）。
 >
 > 分析日期：2026-10-16
 
@@ -39,7 +39,7 @@
 
 ---
 
-## 2. 模块表（`app/src-tauri/src/lib.rs`）
+## 2. 模块表（`src-tauri/src/lib.rs`）
 
 `lib.rs` 头部注释给出与上游目录的对应关系：
 

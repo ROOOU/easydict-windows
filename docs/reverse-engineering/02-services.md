@@ -2,8 +2,8 @@
 
 > 目标：把 `01-overview.md` §3 服务清单第 1–14 项（14 个非 AI 服务）的**请求格式、签名算法、语言代码表、长度限制、查询类型分流**逐条固定下来，作为 Windows 版重写的规格。
 >
-> 上游源码：`C:\Users\12064\AppData\Local\Temp\ezsrc\Easydict-dev\Easydict\Swift\Service\`（下称 `Swift/Service/…`）与 `Easydict/objc/Service/…`。
-> 移植实现：`C:\Users\12064\Desktop\win翻译应用\app\src-tauri\src\service\`。
+> 上游源码：`Easydict/Swift/Service/`（下称 `Swift/Service/…`）与 `Easydict/objc/Service/…`。
+> 移植实现：`src-tauri/src/service/`。
 >
 > 分析日期：2026-10-16
 
@@ -76,7 +76,7 @@ Windows 移植在 `util` 里提供了两个对应函数（`ns_trim_to_max_length
 | 项 | 值 |
 |---|---|
 | 上游文件 | `Swift/Service/Youdao/YoudaoService.swift`、`YoudaoService+Translate.swift`、`YoudaoService+Dict.swift`、`Youdao+Language.swift` |
-| 移植文件 | `app/src-tauri/src/service/youdao.rs` |
+| 移植文件 | `src-tauri/src/service/youdao.rs` |
 | `apiKeyRequirement` | 上游 `ServiceAPIKeyRequirement` 为内置；移植改为用户提供 |
 | 支持查询类型 | translation + dictionary（**只**在 en/ja/fr/ko ↔ 中文时走词典） |
 | 流式 | 否 |

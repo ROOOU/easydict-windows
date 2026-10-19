@@ -1,7 +1,7 @@
 # 语言代码表（含与 BCP-47 的差异）
 
 对应卷：`02-services.md`、`03-ai-services.md`。
-来源：上游 `supportLanguagesDictionary`（Swift）/ `EZLanguageModel`（ObjC）/ 移植 `app/src-tauri/src/service/languages.rs` 的对应常量。**粗体 = 与 BCP-47 或直觉写法不一致者。**
+来源：上游 `supportLanguagesDictionary`（Swift）/ `EZLanguageModel`（ObjC）/ 移植 `src-tauri/src/service/languages.rs` 的对应常量。**粗体 = 与 BCP-47 或直觉写法不一致者。**
 
 ## 1. Youdao
 
@@ -91,4 +91,4 @@
 
 ## 13. 移植侧与上游的一致性
 
-`app/src-tauri/src/service/languages.rs` 逐服务保存上述映射，并提供 `tencent_supports_pair` / `volcano_supports_pair` 两张方向表；`S2T` 字表实现繁简自转（替代 `String.applyingTransform`）。移植的每个语言常量都带注释指向对应的上游文件，可用 `grep -n "zh-CHT" app/src-tauri/src/service/languages.rs` 抽查。
+`src-tauri/src/service/languages.rs` 逐服务保存上述映射，并提供 `tencent_supports_pair` / `volcano_supports_pair` 两张方向表；`S2T` 字表实现繁简自转（替代 `String.applyingTransform`）。移植的每个语言常量都带注释指向对应的上游文件，可用 `grep -n "zh-CHT" src-tauri/src/service/languages.rs` 抽查。
