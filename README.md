@@ -7,7 +7,7 @@
 > **项目状态：** 可构建、核心翻译流程可用的功能移植版，尚非与 macOS 完全对等。
 > 已实现与未验收的内容在下文分别说明。
 
-[下载最新版本](https://github.com/ROOOU/easydict-windows/releases/latest) ·
+[下载预览版](https://github.com/ROOOU/easydict-windows/releases/tag/v0.1.0-preview.1) ·
 [Windows 验收记录](docs/windows-validation.md) ·
 [macOS 对照记录](docs/mac-parity.md)
 
@@ -32,8 +32,8 @@
 
 ## 下载与安装
 
-1. 从 [Releases](https://github.com/ROOOU/easydict-windows/releases/latest)
-   下载最新的 Windows x64 安装包。
+1. 从 [Releases](https://github.com/ROOOU/easydict-windows/releases/tag/v0.1.0-preview.1)
+   下载当前源码对应的 Windows x64 预览安装包。
 2. 运行 NSIS 安装程序并按提示完成安装。
 3. 从开始菜单或桌面快捷方式启动 **Easydict**。
 
