@@ -585,21 +585,27 @@ impl Controller {
     }
 
     fn activate(&mut self, window: HWND) {
-        let Some(pending) = &self.pending else { return };
+        self.activate_text(window);
+    }
+
+    fn activate_text(&mut self, window: HWND) -> Option<String> {
+        let Some(pending) = &self.pending else { return None };
         let options = self.shared.options.lock().clone();
         if !options.enabled
             || pending.generation != self.shared.generation.load(Ordering::Acquire)
-            || !pending.target.is_current()
         {
             self.dismiss(window);
-            return;
+            return None;
         }
+        // The icon is a no-activate popup, but an external click may still move
+        // focus before WM_LBUTTONUP. Selection freshness belongs to the read;
+        // this click uses the text that was already captured for the icon.
         let Some(text) = self.selected.take() else {
-            return;
+            return None;
         };
         self.dismiss(window);
         let Some(state) = self.state.upgrade() else {
-            return;
+            return Some(text);
         };
         let action = if options.auto_query {
             "selectedText"
@@ -607,6 +613,7 @@ impl Controller {
             "selectedTextPreview"
         };
         crate::deliver(&state.app, options.target.label(), ActionPayload::new(action, Some(text)));
+        None
     }
 
     fn point_inside(&self, point: (i32, i32)) -> bool {
@@ -896,6 +903,50 @@ mod tests {
         settings.click_query = true;
         settings.hide_main_window = false;
         assert!(Options::from(&settings).hover);
+    }
+
+    #[test]
+    fn activation_uses_the_captured_selection_after_the_icon_takes_focus() {
+        let settings = Settings::default();
+        let shared = Arc::new(Shared {
+            window: AtomicIsize::new(0),
+            generation: AtomicU64::new(0),
+            busy: AtomicBool::new(false),
+            stopped: AtomicBool::new(false),
+            options: Mutex::new(Options::from(&settings)),
+            status: Mutex::new(Status::default()),
+            reply: Mutex::new(None),
+        });
+        let source = HWND(std::ptr::null_mut());
+        let mut controller = Controller {
+            shared,
+            state: Weak::new(),
+            hooks: None,
+            gesture: Gesture::default(),
+            clock: Instant::now(),
+            pending: Some(Pending {
+                generation: 0,
+                target: SelectionTarget {
+                    window: source,
+                    focus: source,
+                },
+                point: (0, 0),
+                start: (0, 0),
+                select_all: false,
+            }),
+            selected: Some("captured".into()),
+            area: RECT::default(),
+            visible: true,
+        };
+        let icon = HWND(std::ptr::null_mut());
+
+        assert_eq!(controller.activate_text(icon).as_deref(), Some("captured"));
+
+        // The click itself may move focus to the icon; it must not discard the
+        // selection read before the icon was shown.
+        assert!(controller.pending.is_none());
+        assert!(controller.selected.is_none());
+        assert!(!controller.visible);
     }
 
     #[test]

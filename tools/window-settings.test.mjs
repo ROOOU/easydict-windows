@@ -95,6 +95,8 @@ test("the settings tab exposes both switches for all three query windows", () =>
   assert.match(source, /windowConfigurationValue\(settings, kind, "selectLanguage"\)/);
   assert.match(source, /patch\(\{ \[inputField\]: value \}\)/);
   assert.match(source, /patch\(\{ \[selectLanguage\]: value \}\)/);
+  assert.match(source, /checked=\{settings\.hideMainWindow\}/);
+  assert.match(source, /patch\(\{ hideMainWindow: value \}\)/);
 });
 
 test("the settings document carries camelCase keys the Rust config serialises", () => {

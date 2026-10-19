@@ -452,6 +452,16 @@ export function AdvancedTab({
             onChange={(value) => void patch({ miniWindowPosition: value })}
           />
         </Row>
+        <Row
+          label="隐藏主窗口"
+          description="启动和日常使用时只保留托盘；关闭后，划词图标始终悬停打开，并可从托盘唤回主窗口"
+        >
+          <Toggle
+            checked={settings.hideMainWindow}
+            label="隐藏主窗口"
+            onChange={(value) => void patch({ hideMainWindow: value })}
+          />
+        </Row>
       </Section>
 
       <Section
