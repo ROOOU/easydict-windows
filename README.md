@@ -1,90 +1,183 @@
-# EasyDict Windows
+# Easydict for Windows
 
-轻量级 Windows 桌面翻译工具，基于 [Tauri 2](https://tauri.app/) 构建。
+[Easydict](https://github.com/tisfeng/Easydict) 的 Windows 移植版，基于
+**Tauri 2 + Rust + React 19 + TypeScript**。目标是复刻 macOS 原版的查询窗口、
+划词翻译、截图 OCR、词典、朗读、快捷键和托盘体验，同时保持 Windows 端的轻量占用。
 
-## 📥 下载安装
+> **项目状态：** 可构建、核心翻译流程可用的功能移植版，尚非与 macOS 完全对等。
+> 已实现与未验收的内容在下文分别说明。
 
-[![GitHub Release](https://img.shields.io/github/v/release/ROOOU/easydict-windows?style=flat-square&label=最新版本)](https://github.com/ROOOU/easydict-windows/releases/latest)
+[下载最新版本](https://github.com/ROOOU/easydict-windows/releases/latest) ·
+[Windows 验收记录](docs/windows-validation.md) ·
+[macOS 对照记录](docs/mac-parity.md)
 
-1. 前往 [Releases 页面](https://github.com/ROOOU/easydict-windows/releases/latest) 下载最新版 `.exe` 安装包
-2. 双击运行安装（无需管理员权限）
-3. 安装完成后从开始菜单或桌面启动 **EasyDict**
+## 功能
 
-> **系统要求：** Windows 10/11
+- **多翻译服务聚合**：有道、DeepL、Google、Bing、百度、腾讯、阿里、火山、
+  新译、彩云小译、豆包。
+- **AI 翻译**：OpenAI、Gemini、Claude、DeepSeek、Groq、智谱、MiniMax、
+  GitHub Models、Ollama、自定义 OpenAI 兼容服务，以及润色和总结工具。
+- **词典查询**：音标、词性释义、词形变化、近义词、反义词、常用搭配、词源和例句。
+- **多种入口**：主窗口输入、快捷键划词、截图翻译、剪贴板图片 OCR、`easydict://`
+  URL 协议；后台自动划词会显示原生小图标。
+- **原生 Windows 能力**：UI Automation 读取选区，Win32 框选截图，
+  `Windows.Media.Ocr` 识别，系统语音合成兜底朗读。
+- **多窗口与托盘**：主窗口、迷你窗口、固定窗口、OCR 窗口和设置窗口；
+  关闭窗口默认隐藏复用。
+- **可配置快捷键**：默认 `Alt+A` 输入翻译、`Alt+D` 划词翻译、
+  `Alt+S` 截图翻译、`Alt+Shift+S` 静默截图 OCR；全部可在设置中修改。
+- **轻量窗口生命周期**：WebView 按需创建；隐藏窗口申请挂起渲染进程，
+  再次显示前唤醒。
+- **本地数据**：设置、查询历史、收藏和窗口几何信息保存在本机。
 
-## ✨ 功能特性
+## 下载与安装
 
-- **多引擎翻译** — 同时对比多个翻译结果
-  - Google 翻译（免费）
-  - Bing 翻译（免费）
-  - DeepL 翻译（需 API Key）
-  - 百度翻译（需 API Key）
-  - OpenAI / 自定义 LLM（支持任意兼容 API）
-- **划词翻译** — 选中文本后自动翻译，支持浮动图标模式
-- **截图翻译 (OCR)** — 框选屏幕区域，自动识别文字并翻译（基于 Windows OCR API）
-- **TTS 朗读** — 使用 Windows 语音合成引擎朗读原文/译文
-- **全局快捷键**
-  - `Alt+A` 呼出输入翻译
-  - `Alt+D` 划词翻译
-  - `Alt+S` 截图翻译
-  - `Alt+Shift+S` 截图 OCR（仅识别不翻译）
-- **系统托盘** — 最小化到托盘，常驻后台
-- **窗口置顶** — 一键置顶翻译窗口
-- **深色/浅色主题** — 支持跟随系统或手动切换
-- **自动语言检测** — 智能识别源语言
+1. 从 [Releases](https://github.com/ROOOU/easydict-windows/releases/latest)
+   下载最新的 Windows x64 安装包。
+2. 运行 NSIS 安装程序并按提示完成安装。
+3. 从开始菜单或桌面快捷方式启动 **Easydict**。
 
-## 📦 技术栈
+**系统要求**
 
-| 层级 | 技术 |
-|------|------|
-| 框架 | Tauri 2 |
-| 前端 | 原生 HTML/CSS/JS（无框架） |
-| 后端 | Rust |
-| 截图 | xcap |
-| OCR | Windows OCR API |
-| TTS | Windows Speech Synthesis API |
+- Windows 10 或 Windows 11（x64）
+- Microsoft Edge WebView2 Runtime（Windows 11 通常已内置）
 
-## 🚀 快速开始
+安装包当前未做代码签名，Windows 可能显示“未知发布者”提示。
+
+## 快速开始
 
 ### 环境要求
 
-- [Node.js](https://nodejs.org/) ≥ 18
-- [Rust](https://rustup.rs/) ≥ 1.70
-- Windows 10/11（OCR 和 TTS 功能依赖 Windows API）
+- Node.js 20+
+- Rust stable（MSVC 工具链）
+- Visual Studio 2022 Build Tools，安装“使用 C++ 的桌面开发”
+- WebView2 Runtime
 
 ### 开发运行
 
-```bash
-# 安装依赖
+```powershell
+cd app
 npm install
-
-# 启动开发模式
-npm run dev
+npm run tauri dev
 ```
 
-### 构建发布
+### 构建
 
-```bash
-npm run build
+```powershell
+cd app
+npm install
+.\node_modules\.bin\tauri.cmd build --bundles nsis
 ```
 
-构建产物位于 `src-tauri/target/release/bundle/`。
+安装包输出到：
 
-## ⚙️ 配置
-
-首次运行后，配置文件自动生成在：
-
-```
-%APPDATA%/EasyDictWin/config.json
+```text
+app/src-tauri/target/release/bundle/nsis/
 ```
 
-可在应用内的设置页面修改：
-- 启用/禁用翻译引擎
-- 配置 API Key（DeepL、百度、OpenAI）
-- 自定义 OpenAI API 地址和模型
-- 设置默认目标语言
-- 选择主题
+## 配置服务
 
-## 📄 License
+应用不内置任何商业服务密钥。首次启动后打开 **设置 → 服务**，按需填写自己的凭据。
 
-MIT
+| 服务 | 凭据 |
+|---|---|
+| Google / Bing | 无需密钥 |
+| DeepL | 可选 Auth Key；免费版 Key 以 `:fx` 结尾 |
+| 有道 | `youdaoWebApiKey` |
+| 百度 | App ID + Secret Key |
+| 腾讯 | Secret ID + Secret Key |
+| 阿里 | AccessKey ID + AccessKey Secret |
+| 火山 | AccessKey ID + Secret AccessKey |
+| 新译 / 彩云 | API Key / Token |
+| 豆包 | API Key |
+| OpenAI / Gemini / Claude / DeepSeek 等 | 对应服务商的 API Key |
+| Ollama | 无需密钥，需在本机运行 `ollama serve` |
+
+新安装默认启用 Google、Bing 和 DeepL。需要凭据的服务默认关闭；已有配置不会被覆盖。
+
+## 验证
+
+```powershell
+cd app
+npm run typecheck
+npm test
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+最近一次完整检查结果：
+
+- 前端：53 项测试通过，TypeScript 类型检查和 Vite 生产构建通过。
+- Rust：393 项单元测试、9 项传输测试、8 项原生集成测试通过。
+- 1 项私有 window station 剪贴板测试因本机访问权限被拒绝而保持 `ignored`，
+  **未通过、未计入已验证项目**。
+- Release x64 程序与 NSIS 安装器构建成功。
+
+构建仍保留少量既有编译警告，不宣称零警告。
+
+### 实际桌面验证
+
+已在 Windows 桌面使用记事本完成以下检查：
+
+- 选中文本后按 `Alt+D`，固定窗口显示原文。
+- DeepL、Google、Bing 均返回中文译文。
+- 拖动窗口、隐藏后更换选区再按 `Alt+D`，同一结果窗口正确更新原文和译文。
+
+以下项目仍待专项验收：
+
+- 物理鼠标自动划词图标的完整交互。
+- Chrome/Edge、WPS、微信等应用中的选区读取。
+- 密码框、剪贴板复杂格式和并发复制场景。
+- 混合 DPI、多显示器、负坐标和远程桌面。
+- 安装、升级、卸载及 URL 协议冷启动。
+- 可见窗口的长期 CPU、内存和句柄占用。
+
+完整测试记录与验收边界见 [`docs/windows-validation.md`](docs/windows-validation.md)。
+
+## 项目结构
+
+```text
+app/
+  src/                        React 19 + TypeScript 前端
+    api.ts                    Tauri 命令类型化封装
+    windows/                  主窗口、迷你窗口、固定窗口
+    settings/                 设置页
+    ocr/                      OCR 窗口
+    hooks/                    设置、语种、查询状态
+  src-tauri/
+    src/
+      model/                  领域模型
+      config/                 设置结构、默认值和持久化
+      service/                翻译与 AI 服务
+      detect/                 语种识别
+      query/                  查询编排、取消和过期结果
+      store/                  设置、历史与收藏
+      ocr/ tts/ platform/     Windows 原生能力
+      commands.rs             Tauri 命令入口
+    tests/                    原生窗口集成测试
+docs/
+  windows-validation.md       Windows 验证与验收记录
+  mac-parity.md               macOS 原版对照记录
+```
+
+## 隐私与数据
+
+- 翻译文本会发送给当前启用的在线服务商，请先阅读对应服务商的隐私政策。
+- 设置文件使用 Windows DPAPI 加密，只能由同一 Windows 账户解密。
+- 历史与收藏数据库不做加密；请勿在其中保存敏感信息。
+- 默认导出不包含 API Key、Cookie 和服务凭据；勾选“包含密钥”后会导出明文凭据。
+- DPAPI 不能防御同一 Windows 账户下运行的恶意程序。
+
+## 已知限制
+
+- 后台鼠标自动划词、截图框选、多屏和混合 DPI 尚未完成真实桌面专项验收。
+- HTTP 接口、有道 OCR、服务端语言检测校正、MDict 本地词典尚未实现。
+- `Claude Code`、`Codex`、`GitHub Copilot CLI` 等本地 CLI 服务仍为占位。
+- `Ctrl+Shift+D` 的 Apple 词典入口保留原版语义，但 Windows 默认没有 `dict:` 处理程序。
+- 项目尚未与 macOS 原版做完整并排交互对比。
+
+## 致谢与许可
+
+本项目基于 [tisfeng/Easydict](https://github.com/tisfeng/Easydict) 的交互与实现进行
+Windows 移植。上游项目以 **GPL-3.0** 发布，本移植沿用同一许可证。
+
+翻译服务、词典数据、OCR 语言包和语音资源分别受其各自服务条款与许可证约束。

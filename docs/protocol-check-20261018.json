@@ -1,0 +1,30 @@
+﻿{
+    "status":  "completed",
+    "startedAt":  "2026-10-18T14:45:49.1905873+08:00",
+    "exe":  "C:\\Users\\12064\\Desktop\\win翻译应用\\app\\src-tauri\\target\\release\\app.exe",
+    "exeSha256":  "578476DDF0B0CB0F395EC1FBC42CEBA8D37C6E940F7AD72557C2D0368EC1729B",
+    "link":  "easydict://query?text=cold%20start%20probe",
+    "registeredBefore":  "\"C:\\Users\\12064\\Desktop\\win翻译应用\\app\\src-tauri\\target\\release\\app.exe\" \"%1\"",
+    "coldStart":  true,
+    "windowAppeared":  true,
+    "logLineFound":  true,
+    "queryExecuted":  true,
+    "registeredCommand":  "\"C:\\Users\\12064\\Desktop\\win翻译应用\\app\\src-tauri\\target\\release\\app.exe\" \"%1\"",
+    "registrationRemoved":  true,
+    "secondRemovalExitCode":  1,
+    "registeredAfterPlainStart":  true,
+    "processStopped":  true,
+    "logTail":  [
+                    "[2026-10-18][06:32:34][reqwest::retry][TRACE] shouldn\u0027t retry!",
+                    "[2026-10-18][06:32:34][app_lib::commands][DEBUG] query: DeepL -\u003e fixed showing=true chars=5 error=None",
+                    "[2026-10-18][06:32:34][app_lib::commands][INFO] query: window=fixed finished cancelled=false",
+                    "[2026-10-18][06:45:49][app_lib][INFO] deep link: query",
+                    "[2026-10-18][06:45:49][tauri::manager][DEBUG] Asset `favicon.ico` not found; fallback to favicon.ico.html",
+                    "[2026-10-18][06:45:49][tauri::manager][DEBUG] Asset `favicon.ico` not found; fallback to favicon.ico/index.html",
+                    "[2026-10-18][06:45:49][tauri::manager][DEBUG] Asset `favicon.ico` not found; fallback to index.html"
+                ],
+    "elapsedSeconds":  6.8,
+    "notes":  [
+
+              ]
+}

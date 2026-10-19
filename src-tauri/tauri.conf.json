@@ -1,61 +1,101 @@
 {
-    "$schema": "https://raw.githubusercontent.com/nicedoc/tauri-schema/master/src/schema.json",
-    "productName": "EasyDict Win",
-    "version": "1.0.0",
-    "identifier": "com.easydict.win",
-    "build": {
-        "frontendDist": "../src",
-        "beforeDevCommand": "",
-        "beforeBuildCommand": ""
-    },
-    "app": {
-        "windows": [
-            {
-                "title": "EasyDict",
-                "label": "main",
-                "width": 420,
-                "height": 650,
-                "minWidth": 360,
-                "minHeight": 400,
-                "decorations": false,
-                "transparent": false,
-                "resizable": true,
-                "center": true,
-                "visible": true
-            }
-        ],
-        "withGlobalTauri": true,
-        "security": {
-            "csp": null
-        },
-        "trayIcon": {
-            "iconPath": "icons/icon.png",
-            "iconAsTemplate": false,
-            "tooltip": "EasyDict"
-        }
-    },
-    "bundle": {
-        "active": true,
-        "targets": [
-            "nsis"
-        ],
-        "icon": [
-            "icons/32x32.png",
-            "icons/128x128.png",
-            "icons/128x128@2x.png",
-            "icons/icon.icns",
-            "icons/icon.ico"
-        ],
-        "windows": {
-            "nsis": {
-                "languages": [
-                    "SimpChinese",
-                    "English"
-                ],
-                "displayLanguageSelector": false,
-                "installMode": "currentUser"
-            }
-        }
-    },
-    "plugins": {}
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Easydict",
+  "version": "0.1.0",
+  "identifier": "com.easydict.windows",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "title": "Easydict",
+        "width": 500,
+        "height": 240,
+        "minWidth": 320,
+        "minHeight": 120,
+        "resizable": true,
+        "visible": false,
+        "center": true
+      },
+      {
+        "label": "mini",
+        "create": false,
+        "title": "Easydict",
+        "width": 400,
+        "height": 200,
+        "minWidth": 260,
+        "minHeight": 120,
+        "decorations": false,
+        "transparent": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": true,
+        "visible": false
+      },
+      {
+        "label": "fixed",
+        "create": false,
+        "title": "Easydict",
+        "width": 420,
+        "height": 240,
+        "minWidth": 260,
+        "minHeight": 120,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": true,
+        "visible": false
+      },
+      {
+        "label": "settings",
+        "create": false,
+        "title": "Easydict 设置",
+        "width": 820,
+        "height": 580,
+        "minWidth": 640,
+        "minHeight": 460,
+        "resizable": true,
+        "visible": false,
+        "center": true
+      },
+      {
+        "label": "ocr",
+        "create": false,
+        "title": "Easydict OCR",
+        "width": 620,
+        "height": 440,
+        "minWidth": 420,
+        "minHeight": 300,
+        "resizable": true,
+        "visible": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "installer-hooks.nsh"
+      }
+    }
+  }
 }

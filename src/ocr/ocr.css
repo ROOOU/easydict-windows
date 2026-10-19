@@ -1,0 +1,169 @@
+/**
+ * OCR window styles.
+ *
+ * Built on the same `--ez-*` tokens as the rest of the app: a toolbar, two
+ * equal panes and a status strip. The panes only need to survive a resize —
+ * `min-height: 0` throughout is what keeps the text areas scrolling instead of
+ * stretching the window.
+ */
+
+.ezo-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--ez-bg);
+  overflow: hidden;
+}
+
+/* --- toolbar ----------------------------------------------------------- */
+
+.ezo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ez-space-2);
+  flex: 0 0 auto;
+  padding: var(--ez-space-2) var(--ez-space-3);
+  background: var(--ez-bg-elevated);
+  border-bottom: 1px solid var(--ez-separator);
+}
+
+.ezo-toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.ezo-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--ez-space-2);
+  color: var(--ez-text-secondary);
+  font-size: var(--ez-font-size-small);
+  cursor: pointer;
+}
+
+.ezo-banner {
+  flex: 0 0 auto;
+  padding: var(--ez-space-3) var(--ez-space-3) 0;
+}
+
+.ezo-banner .ezy-banner {
+  margin-bottom: 0;
+}
+
+/* --- panes ------------------------------------------------------------- */
+
+.ezo-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ez-space-3);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--ez-space-3);
+}
+
+.ezo-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--ez-bg-card);
+  border: 1px solid var(--ez-border);
+  border-radius: var(--ez-radius-card);
+  box-shadow: var(--ez-shadow-card);
+  overflow: hidden;
+}
+
+.ezo-pane-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ez-space-2);
+  flex: 0 0 auto;
+  padding: 4px var(--ez-space-2) 4px var(--ez-space-3);
+  border-bottom: 1px solid var(--ez-separator);
+  font-size: var(--ez-font-size-small);
+}
+
+.ezo-pane-title {
+  flex: 1 1 auto;
+  color: var(--ez-text);
+  font-weight: 600;
+}
+
+.ezo-pane-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ezo-text {
+  width: 100%;
+  height: 100%;
+  padding: var(--ez-space-3);
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: var(--ez-font-size-result);
+  line-height: 1.6;
+  resize: none;
+}
+
+.ezo-text:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.ezo-result {
+  height: 100%;
+  padding: var(--ez-space-3);
+  font-size: var(--ez-font-size-result);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ezo-placeholder {
+  color: var(--ez-text-tertiary);
+  font-size: var(--ez-font-size-small);
+}
+
+/* --- recognised lines -------------------------------------------------- */
+
+.ezo-lines {
+  flex: 0 0 auto;
+  max-height: 132px;
+  padding: var(--ez-space-2) var(--ez-space-3);
+  border-top: 1px solid var(--ez-separator);
+  font-size: var(--ez-font-size-small);
+}
+
+.ezo-line {
+  display: flex;
+  gap: var(--ez-space-2);
+  color: var(--ez-text-secondary);
+}
+
+.ezo-line-box {
+  flex: 0 0 auto;
+  color: var(--ez-text-tertiary);
+  font-family: var(--ez-font-mono);
+  font-size: 11px;
+}
+
+/* --- status bar -------------------------------------------------------- */
+
+.ezo-status {
+  display: flex;
+  align-items: center;
+  gap: var(--ez-space-3);
+  flex: 0 0 auto;
+  padding: 4px var(--ez-space-3);
+  background: var(--ez-bg-elevated);
+  border-top: 1px solid var(--ez-separator);
+  color: var(--ez-text-tertiary);
+  font-size: var(--ez-font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.ezo-status-spacer {
+  flex: 1 1 auto;
+}

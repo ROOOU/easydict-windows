@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "settings-dialog",
+  "description": "Settings transfer file pickers and explicit import/export confirmation.",
+  "windows": ["settings"],
+  "permissions": [
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-message"
+  ]
+}

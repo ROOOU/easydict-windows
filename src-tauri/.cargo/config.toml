@@ -1,2 +1,0 @@
-# Linker optimization removed - rust-lld not available
-# Dev build speed comes from Cargo.toml profile settings

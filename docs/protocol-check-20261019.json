@@ -1,0 +1,36 @@
+﻿{
+    "status":  "completed",
+    "startedAt":  "2026-10-19T18:34:55.8054166+08:00",
+    "exe":  "C:\\Users\\12064\\Desktop\\win翻译应用\\app\\src-tauri\\target\\release\\app.exe",
+    "exeSha256":  "B7BCBE9E050C6ABAAEEC99D7673BB83B126C0269AFCF8B4D4135D6FA9E454514",
+    "link":  "easydict://query?text=cold%20start%20probe",
+    "launchedThroughShellExecute":  true,
+    "registeredBefore":  "\"C:\\Users\\12064\\Desktop\\win翻译应用\\app\\src-tauri\\target\\release\\app.exe\" \"%1\"",
+    "coldStart":  true,
+    "windowAppeared":  true,
+    "logLineFound":  true,
+    "queryExecuted":  true,
+    "registeredCommand":  "\"C:\\Users\\12064\\Desktop\\win翻译应用\\app\\src-tauri\\target\\release\\app.exe\" \"%1\"",
+    "registrationRemoved":  true,
+    "secondRemovalExitCode":  1,
+    "registeredAfterPlainStart":  true,
+    "processStopped":  true,
+    "logTail":  [
+                    "[2026-10-19][10:27:05][app_lib::commands][INFO] query: window=fixed finished cancelled=false",
+                    "[2026-10-19][10:34:56][app_lib][INFO] deep link: query",
+                    "[2026-10-19][10:34:56][tauri::manager][DEBUG] Asset `favicon.ico` not found; fallback to favicon.ico.html",
+                    "[2026-10-19][10:34:56][tauri::manager][DEBUG] Asset `favicon.ico` not found; fallback to favicon.ico/index.html",
+                    "[2026-10-19][10:34:56][tauri::manager][DEBUG] Asset `favicon.ico` not found; fallback to index.html",
+                    "[2026-10-19][10:34:56][app_lib::commands][INFO] query: window=fixed id=b2683713-da8f-4592-abe8-e02e4977c0b4 chars=16 English-\u003eSimplified-Chinese",
+                    "[2026-10-19][10:34:56][app_lib::commands][DEBUG] query: Bing -\u003e fixed showing=true chars=0 error=None",
+                    "[2026-10-19][10:34:56][app_lib::commands][DEBUG] query: DeepL -\u003e fixed showing=true chars=0 error=None",
+                    "[2026-10-19][10:34:56][app_lib::commands][DEBUG] query: Google -\u003e fixed showing=true chars=0 error=None",
+                    "[2026-10-19][10:34:56][reqwest::connect][DEBUG] starting new connection \u0027Some(\"cn.bing.com\")\u0027",
+                    "[2026-10-19][10:34:56][reqwest::connect][DEBUG] starting new connection \u0027Some(\"itunes.apple.com\")\u0027",
+                    "[2026-10-19][10:34:56][reqwest::connect][DEBUG] starting new connection \u0027Some(\"translate.google.com\")\u0027"
+                ],
+    "elapsedSeconds":  7,
+    "notes":  [
+
+              ]
+}
