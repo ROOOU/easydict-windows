@@ -6,6 +6,279 @@ use tauri::{AppHandle, Manager, PhysicalPosition, RunEvent, WebviewUrl};
 const PROFILE_ENV: &str = "EASYDICT_NATIVE_TEST_PROFILE";
 
 #[test]
+fn replacement_command_rejects_missing_bindings_without_accessing_the_desktop() {
+    in_isolated_app(
+        "replacement_command_rejects_missing_bindings_without_accessing_the_desktop",
+        std::time::Duration::from_secs(15),
+        |app| {
+            use app_lib::{commands::replace_selected_text, state::AppState, store::Store};
+            let data = std::path::PathBuf::from(std::env::var_os(PROFILE_ENV).unwrap()).join("store");
+            let store = Arc::new(Store::open(data).map_err(|e| e.to_string())?);
+            app.manage(AppState::new(app.clone(), store.clone()).map_err(|e| e.to_string())?);
+            for (text, target, original) in [
+                ("new", None, None),
+                ("new", Some([1, 2]), None),
+                ("new\0text", Some([1, 2]), Some("old".to_string())),
+                ("new", Some([0, 0]), Some("old".to_string())),
+            ] {
+                let error = tauri::async_runtime::block_on(
+                    replace_selected_text(app.state(), text.into(), target, original),
+                ).unwrap_err();
+                assert!(error.contains("原选区信息"), "{error}");
+            }
+            assert!(app.webview_windows().is_empty());
+            assert!(store.history(10, 0).unwrap().is_empty());
+            Ok(())
+        },
+    );
+}
+
+#[test]
+fn polishing_action_uses_its_disabled_service_and_preserves_errors() {
+    in_isolated_app(
+        "polishing_action_uses_its_disabled_service_and_preserves_errors",
+        std::time::Duration::from_secs(30),
+        |app| {
+            use app_lib::{
+                commands::{polish_text, QueryRequest},
+                config::{ServiceConfig, Settings},
+                model::Language,
+                service::llm::prompts::POLISHING_SYSTEM_PROMPT,
+                state::AppState,
+                store::Store,
+            };
+            use std::{io::{Read, Write}, net::TcpListener, time::Duration};
+            use serde_json::json;
+
+            let data = std::path::PathBuf::from(std::env::var_os(PROFILE_ENV).unwrap()).join("store");
+            let store = Arc::new(Store::open(data).map_err(|e| e.to_string())?);
+            let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
+            let endpoint = format!("http://{}/v1/chat/completions", listener.local_addr().unwrap());
+            let mut settings = Settings::default();
+            settings.shortcuts.clear();
+            settings.auto_show_query_icon = false;
+            for config in settings.services.values_mut() { config.enabled = false; }
+            settings.services.insert("CustomOpenAI#not-polishing".into(), ServiceConfig {
+                enabled: true, api_key: "test-key".into(), endpoint: endpoint.clone(),
+                ..Default::default()
+            });
+            settings.services.insert("Polishing".into(), ServiceConfig {
+                enabled: false, endpoint, model: "local-polish".into(),
+                valid_models: vec!["local-polish".into()],
+                ..Default::default()
+            });
+            let request = |text: &str| serde_json::from_value::<QueryRequest>(json!({
+                "text": text, "from": "French", "to": "Simplified-Chinese", "windowType": "fixed",
+            })).unwrap();
+            store.save_settings(&settings).map_err(|e| e.to_string())?;
+            app.manage(AppState::new(app.clone(), store.clone()).map_err(|e| e.to_string())?);
+            let error = tauri::async_runtime::block_on(polish_text(app.state(), request("She don't like the weather.")))
+                .unwrap_err();
+            assert!(error.contains("Polishing") && error.contains("key"), "{error}");
+            assert!(tauri::async_runtime::block_on(polish_text(app.state(), request(" "))).is_err());
+            // Even with a normal translator enabled, missing polishing keys must
+            // not start any HTTP request or silently translate in another language.
+            listener.set_nonblocking(true).unwrap();
+            assert_eq!(listener.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+            listener.set_nonblocking(false).unwrap();
+            assert!(store.history(10, 0).unwrap().is_empty());
+
+            for (streaming, status, output) in [
+                (false, 200, "She does not like the weather."),
+                (true, 200, "She does not like the weather."),
+                (false, 200, " "),
+                (false, 401, "Unauthorized"),
+            ] {
+                let listener = listener.try_clone().unwrap();
+                let server = std::thread::spawn(move || {
+                    let (mut socket, _) = listener.accept().unwrap();
+                    socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                    let mut raw = Vec::new();
+                    let mut buffer = [0; 4096];
+                    let body_start = loop {
+                        let read = socket.read(&mut buffer).unwrap();
+                        assert_ne!(read, 0, "incomplete HTTP request");
+                        raw.extend_from_slice(&buffer[..read]);
+                        if let Some(end) = raw.windows(4).position(|w| w == b"\r\n\r\n") {
+                            let head = String::from_utf8_lossy(&raw[..end]);
+                            let length: usize = head.lines().find_map(|line| {
+                                let (key, value) = line.split_once(':')?;
+                                key.eq_ignore_ascii_case("content-length").then(|| value.trim().parse().unwrap())
+                            }).unwrap();
+                            if raw.len() >= end + 4 + length { break end + 4; }
+                        }
+                    };
+                    let input: serde_json::Value = serde_json::from_slice(&raw[body_start..]).unwrap();
+                    assert_eq!(input["model"], "local-polish");
+                    assert_eq!(input["stream"], streaming);
+                    assert_eq!(input["messages"][0]["content"], POLISHING_SYSTEM_PROMPT);
+                    let prompt = input["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap();
+                    assert!(prompt.starts_with("Polish the following English text"), "{prompt}");
+                    assert!(prompt.ends_with("\"\"\"She don't like the weather.\"\"\""), "{prompt}");
+                    let json = json!({"choices": [{"message": {"content": output}}]}).to_string();
+                    let chunk = json!({"id":"1", "object":"chat.completion.chunk", "created":0,
+                        "model":"local-polish", "choices":[{"index":0,"delta":{"content":output},"finish_reason":null}]}).to_string();
+                    let body = if streaming { format!("data: {chunk}\n\ndata: [DONE]\n\n") } else { json };
+                    let content_type = if streaming { "text/event-stream" } else { "application/json" };
+                    write!(socket, "HTTP/1.1 {status} OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+                });
+                let config = settings.services.get_mut("Polishing").unwrap();
+                config.api_key = "test-key".into();
+                config.enable_streaming = streaming;
+                app.state::<Arc<AppState>>().update_settings(|saved| {
+                    *saved = settings.clone();
+                    Ok(())
+                })?;
+                let result = tauri::async_runtime::block_on(polish_text(app.state(), request("She don't like the weather.")));
+                server.join().expect("local polishing request");
+                if status == 401 {
+                    let error = result.unwrap_err();
+                    assert!(error.contains("401") && error.contains("Polishing"), "{error}");
+                } else if output.trim().is_empty() {
+                    let error = result.unwrap_err();
+                    assert!(error.contains("No result") || error.contains("未替换原文"), "{error}");
+                } else {
+                    let result = result?;
+                    assert_eq!(result.service_type_with_unique_identifier, "Polishing");
+                    assert_eq!(result.from, Language::English);
+                    assert_eq!(result.to, Language::English);
+                    assert_eq!(result.translated_results, Some(vec![output.into()]));
+                }
+            }
+            eprintln!("polishing: disabled service, source detection, JSON/SSE, missing key, empty result and HTTP error passed");
+            Ok(())
+        },
+    );
+}
+
+#[test]
+fn tray_check_tracks_saved_settings_and_rolls_back_failed_clicks() {
+    in_isolated_app(
+        "tray_check_tracks_saved_settings_and_rolls_back_failed_clicks",
+        std::time::Duration::from_secs(20),
+        |app| {
+            use app_lib::{state::AppState, store::Store};
+            use std::{os::windows::fs::OpenOptionsExt, time::{Duration, Instant}};
+            use tauri::menu::{ContextMenu, Menu};
+            use windows::{core::BOOL, Win32::{
+                Foundation::{HWND, LPARAM, WPARAM},
+                UI::WindowsAndMessaging::*,
+            }};
+
+            unsafe extern "system" fn find_tray(hwnd: HWND, data: LPARAM) -> BOOL {
+                let mut pid = 0;
+                unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)); }
+                if pid == std::process::id() {
+                    let mut class = [0; 64];
+                    let len = unsafe { GetClassNameW(hwnd, &mut class) } as usize;
+                    if String::from_utf16_lossy(&class[..len]) == "tray_icon_app" {
+                        unsafe { *(data.0 as *mut HWND) = hwnd; }
+                        return BOOL(0);
+                    }
+                }
+                BOOL(1)
+            }
+
+            let data = std::path::PathBuf::from(std::env::var_os(PROFILE_ENV).unwrap()).join("store");
+            let store = Arc::new(Store::open(data).map_err(|e| e.to_string())?);
+            let state = AppState::new(app.clone(), store.clone()).map_err(|e| e.to_string())?;
+            store.save_settings(&state.settings()).map_err(|e| e.to_string())?;
+            app.manage(state.clone());
+            app_lib::tray::install(&app, &state).map_err(|e| e.to_string())?;
+            app.tray_by_id(app_lib::tray::TRAY_ID).unwrap()
+                .set_visible(false).map_err(|e| e.to_string())?;
+            let menu = app.state::<Menu<tauri::Wry>>().inner().clone();
+            let popup = menu.hpopupmenu().map_err(|e| e.to_string())?;
+            let check = menu.get("autoSelect").unwrap().as_check_menuitem().unwrap().clone();
+            let wait = |done: &dyn Fn() -> bool| -> Result<(), String> {
+                let deadline = Instant::now() + Duration::from_secs(3);
+                while !done() {
+                    if Instant::now() >= deadline { return Err("tray update timed out".into()); }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Ok(())
+            };
+            let click = || -> Result<(), String> {
+                let handle = app.clone();
+                let (tx, rx) = std::sync::mpsc::channel();
+                app.run_on_main_thread(move || {
+                    let menu = handle.state::<Menu<tauri::Wry>>();
+                    let position = menu.items().unwrap().iter()
+                        .position(|item| item.id().as_ref() == "autoSelect").unwrap();
+                    let native_menu = HMENU(menu.hpopupmenu().unwrap() as *mut _);
+                    let id = unsafe { GetMenuItemID(native_menu, position as i32) };
+                    let mut hwnd = HWND::default();
+                    unsafe { let _ = EnumWindows(Some(find_tray), LPARAM(&mut hwnd as *mut _ as isize)); }
+                    assert!(!hwnd.is_invalid(), "isolated tray window not found");
+                    // Exercise muda's native toggle and Tauri's real menu event,
+                    // without clicking Explorer or touching the user's app.
+                    unsafe { SendMessageW(hwnd, WM_COMMAND, Some(WPARAM(id as usize)), None); }
+                    let _ = tx.send(());
+                }).map_err(|e| e.to_string())?;
+                rx.recv_timeout(Duration::from_secs(3)).map_err(|e| e.to_string())
+            };
+            let assert_checked = |expected: bool| -> Result<(), String> {
+                // Publishing settings precedes the queued UI refresh.
+                wait(&|| state.settings().auto_show_query_icon == expected
+                    && check.is_checked().ok() == Some(expected))?;
+                assert_eq!(check.is_checked().unwrap(), expected, "native check differs from saved setting");
+                assert_eq!(state.settings().auto_show_query_icon, expected);
+                assert_eq!(store.load_settings().unwrap().auto_show_query_icon, expected);
+                assert_eq!(menu.hpopupmenu().unwrap(), popup, "tray menu was unnecessarily replaced");
+                let handle = app.clone();
+                let (tx, rx) = std::sync::mpsc::channel();
+                app.run_on_main_thread(move || {
+                    let menu = handle.state::<Menu<tauri::Wry>>();
+                    let position = menu.items().unwrap().iter()
+                        .position(|item| item.id().as_ref() == "autoSelect").unwrap();
+                    let native_menu = HMENU(menu.hpopupmenu().unwrap() as *mut _);
+                    let flags = unsafe { GetMenuState(native_menu, position as u32, MF_BYPOSITION) };
+                    let _ = tx.send(flags);
+                }).map_err(|e| e.to_string())?;
+                let flags = rx.recv_timeout(Duration::from_secs(3)).map_err(|e| e.to_string())?;
+                assert_ne!(flags, u32::MAX, "Windows could not read the actual popup item");
+                assert_eq!(flags & MF_CHECKED.0 != 0, expected, "Windows popup check differs from cached state");
+                Ok(())
+            };
+
+            assert_checked(true)?;
+            // Deny the atomic file replacement, then exercise the real callback.
+            let locked = std::fs::OpenOptions::new().read(true).share_mode(0)
+                .open(store.settings_path()).map_err(|e| e.to_string())?;
+            click()?;
+            wait(&|| app.state::<app_lib::window::Windows>().next("main")
+                .is_some_and(|payload| payload.action == "selectionError"))?;
+            drop(locked);
+            assert_checked(true)?;
+
+            for expected in [false, true, false, true] {
+                click()?;
+                assert_checked(expected)?;
+            }
+            // Settings-page edits, including structural OCR changes, reuse the
+            // same check item and popup rather than leaving stale native handles.
+            for visible in [true, false, true, false] {
+                state.update_settings(|settings| {
+                    settings.show_ocr_menu_items = visible;
+                    settings.auto_show_query_icon = !visible;
+                    Ok(())
+                })?;
+                assert_checked(!visible)?;
+                let items = menu.items().map_err(|e| e.to_string())?;
+                assert_eq!(items.iter().filter(|item| item.id().as_ref() == "showOCRWindow").count(),
+                    usize::from(visible));
+                assert!(menu.get("inputTranslate").unwrap().as_check_menuitem().is_none());
+                click()?;
+                assert_checked(visible)?;
+            }
+            app.remove_tray_by_id(app_lib::tray::TRAY_ID);
+            eprintln!("tray: native clicks, saved checks, failed-save rollback and OCR edits passed");
+            Ok(())
+        },
+    );
+}
+
+#[test]
 fn intelligent_query_dispatch_filters_only_the_opted_in_window() {
     in_isolated_app(
         "intelligent_query_dispatch_filters_only_the_opted_in_window",
@@ -757,6 +1030,26 @@ fn hiding_a_window_suspends_its_webview_and_showing_it_resumes() {
             if !controller_is_visible(&window)? {
                 return Err("the test could not make the WebView visible".into());
             }
+            let (woke, wakes) = mpsc::channel();
+            let listener = tauri::Listener::listen(&window, app_lib::commands::events::ACTION, move |_| {
+                let _ = woke.send(());
+            });
+            for _ in 0..2 {
+                app_lib::window::enqueue(&app, "main",
+                    app_lib::commands::ActionPayload::new("polishAndReplace", None))?;
+            }
+            for _ in 0..2 { wakes.recv_timeout(Duration::from_secs(5)).map_err(|e| e.to_string())?; }
+            tauri::Listener::unlisten(&window, listener);
+            let windows = app.state::<app_lib::window::Windows>();
+            windows.next("main").unwrap();
+            assert_eq!(set_hidden(&window, true, |_| {})?, MemoryState::Active);
+            assert!(controller_is_visible(&window)?);
+            assert!(!windows.complete("main"), "queued action must keep the window awake");
+            windows.next("main").unwrap();
+            assert_eq!(set_hidden(&window, true, |_| {})?, MemoryState::Active);
+            assert!(controller_is_visible(&window)?);
+            assert!(windows.complete("main"));
+            eprintln!("pending and in-flight hidden actions refuse suspension until completion");
             let (reported, answer) = mpsc::channel();
             let state = set_hidden(&window, true, move |accepted| {
                 let _ = reported.send(accepted);

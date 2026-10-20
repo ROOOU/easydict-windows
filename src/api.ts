@@ -108,6 +108,10 @@ export const querySingle = (identifier: string, request: QueryRequest) =>
 export const translateText = (request: QueryRequest) =>
   invoke<QueryResult>("translate_text", { request });
 
+/** Uses the dedicated polishing service, never a translation fallback. */
+export const polishText = (request: QueryRequest) =>
+  invoke<QueryResult>("polish_text", { request });
+
 export const onQueryUpdate = (handler: (payload: QueryEventPayload) => void) =>
   getCurrentWebviewWindow().listen<QueryEventPayload>("query-update", (event) => handler(event.payload));
 
@@ -123,6 +127,7 @@ export const onAction = createActionInbox(
   () => invoke<ActionPayload | null>("next_action"),
   (wake) => getCurrentWebviewWindow().listen("action", wake),
   reportActionError,
+  () => invoke<void>("finish_action"),
 );
 
 export const onDesktopStatusChanged = (handler: () => void) =>
@@ -145,8 +150,11 @@ export const setClipboardText = (text: string) =>
 export const selectedText = (target?: ActionPayload["selectionTarget"]) =>
   invoke<string | null>("selected_text", { target: target ?? null });
 
-export const replaceSelectedText = (text: string, target?: ActionPayload["selectionTarget"]) =>
-  invoke<void>("replace_selected_text", { text, target: target ?? null });
+export const replaceSelectedText = (
+  text: string,
+  target?: ActionPayload["selectionTarget"],
+  expectedText?: string,
+) => invoke<void>("replace_selected_text", { text, target: target ?? null, expectedText: expectedText ?? null });
 
 // ---------------------------------------------------------------------------
 // OCR

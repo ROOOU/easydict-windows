@@ -257,6 +257,7 @@ pub fn builder() -> tauri::Builder<tauri::Wry> {
             commands::set_clipboard_text,
             commands::selected_text,
             commands::translate_text,
+            commands::polish_text,
             commands::replace_selected_text,
             commands::ocr_image,
             commands::screenshot_ocr,
@@ -278,6 +279,7 @@ pub fn builder() -> tauri::Builder<tauri::Wry> {
             commands::is_favorite,
             commands::show_window,
             commands::next_action,
+            commands::finish_action,
             commands::open_settings,
             commands::report_action_error,
             commands::hide_window,
@@ -333,15 +335,22 @@ fn on_global_shortcut(app: &tauri::AppHandle, shortcut: &Shortcut) {
 }
 
 pub(crate) fn toggle_auto_selection(app: &tauri::AppHandle) {
-    if let Some(state) = app.try_state::<Arc<AppState>>() {
+    let Some(state) = app.try_state::<Arc<AppState>>() else { return };
+    let state = state.inner().clone();
+    let app = app.clone();
+    // Menu/shortcut callbacks must not wait for a concurrent settings writer
+    // that may itself need the event loop for native registrations.
+    tauri::async_runtime::spawn_blocking(move || {
         if let Err(error) = state.update_settings(|settings| {
             settings.auto_show_query_icon = !settings.auto_show_query_icon;
             Ok(())
         }) {
+            // Windows toggles check items before delivering their menu event.
+            crate::tray::refresh(&app);
             log::warn!("could not change automatic selection: {error}");
-            dispatch(app, "selectionError", Some(error));
+            dispatch(&app, "selectionError", Some(error));
         }
-    }
+    });
 }
 
 /// Hands an action to the focused window's front-end, which owns the

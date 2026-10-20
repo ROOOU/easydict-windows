@@ -68,23 +68,22 @@ mod imp {
         (unsafe { GetAsyncKeyState(vk.0 as i32) } as u16) & 0x8000 != 0
     }
 
-    /// Synthesises `Ctrl+C` into whatever window has focus.
-    ///
-    /// Used by the clipboard fallback of the selection reader. When the user is
-    /// already holding Ctrl (a `Ctrl+…` shortcut), only `C` is sent, because a
-    /// synthesised Ctrl key-up would release the key the user still holds.
-    pub fn send_copy_keystroke() -> Result<(), String> {
-        let ctrl_held = is_down(VK_CONTROL);
+    /// Build Ctrl+C / Ctrl+V without releasing a Ctrl key the user holds.
+    fn control_keystroke(vk: VIRTUAL_KEY, ctrl_held: bool) -> Vec<INPUT> {
         let mut events = Vec::with_capacity(4);
         if !ctrl_held {
             events.push(key(VK_CONTROL, false));
         }
-        events.push(key(VK_C, false));
-        events.push(key(VK_C, true));
+        events.push(key(vk, false));
+        events.push(key(vk, true));
         if !ctrl_held {
             events.push(key(VK_CONTROL, true));
         }
-        send(&events)
+        events
+    }
+
+    pub fn send_copy_keystroke() -> Result<(), String> {
+        send(&control_keystroke(VK_C, is_down(VK_CONTROL)))
     }
 
     /// Synthesises `Ctrl+V` into whatever window has focus.
@@ -93,12 +92,30 @@ mod imp {
     /// clipboard, calls this, then restores the old clipboard once the target
     /// application has had a moment to read it.
     pub fn send_paste_keystroke() -> Result<(), String> {
-        send(&[
-            key(VK_CONTROL, false),
-            key(VK_V, false),
-            key(VK_V, true),
-            key(VK_CONTROL, true),
-        ])
+        send(&control_keystroke(VK_V, is_down(VK_CONTROL)))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn copy_and_paste_do_not_release_a_control_key_the_user_holds() {
+            for vk in [VK_C, VK_V] {
+                for held in [false, true] {
+                    let events = control_keystroke(vk, held);
+                    let keys: Vec<_> = events.iter().map(|input| unsafe {
+                        (input.Anonymous.ki.wVk, input.Anonymous.ki.dwFlags)
+                    }).collect();
+                    let mut expected = vec![(vk, KEYBD_EVENT_FLAGS(0)), (vk, KEYEVENTF_KEYUP)];
+                    if !held {
+                        expected.insert(0, (VK_CONTROL, KEYBD_EVENT_FLAGS(0)));
+                        expected.push((VK_CONTROL, KEYEVENTF_KEYUP));
+                    }
+                    assert_eq!(keys, expected);
+                }
+            }
+        }
     }
 
     /// The first entry of [`system_languages`] resolved to a [`Language`],

@@ -124,7 +124,7 @@ impl AppState {
         if let Some(selection) = self.app.try_state::<crate::platform::auto_selection::AutoSelection>() {
             selection.configure(&snapshot);
         }
-        crate::tray::refresh(&self.app, self);
+        crate::tray::refresh(&self.app);
         let _ = self.app.emit(crate::commands::events::SETTINGS_CHANGED, &snapshot);
         Ok(snapshot)
     }

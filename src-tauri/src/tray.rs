@@ -1,13 +1,12 @@
 //! The tray icon — the Windows stand-in for the macOS `MenuBarExtra`.
 //!
-//! The menu is rebuilt whenever a menu item's state changes, because Tauri's
-//! check items cannot be mutated in place.
+//! Keep native items alive and update their state in place.
 
 use std::sync::Arc;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::state::AppState;
 
@@ -42,16 +41,42 @@ pub fn install(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<()> {
     }
 
     builder.build(app)?;
+    app.manage(menu);
     Ok(())
 }
 
-/// Rebuilds the tray menu so the check items reflect the current settings.
-pub fn refresh(app: &AppHandle, state: &AppState) {
-    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+/// Queue UI work without holding a settings transaction on the event loop.
+pub fn refresh(app: &AppHandle) {
+    if app.try_state::<Menu<tauri::Wry>>().is_none() {
         return;
-    };
-    if let Ok(menu) = build_menu(app, state) {
-        let _ = tray.set_menu(Some(menu));
+    }
+    let handle = app.clone();
+    if let Err(error) = app.run_on_main_thread(move || {
+        let Some(state) = handle.try_state::<Arc<AppState>>() else { return };
+        // Read on delivery: an older queued refresh must not undo a newer edit.
+        let settings = state.settings();
+        let menu = handle.state::<Menu<tauri::Wry>>();
+        let result = (|| -> tauri::Result<()> {
+            if let Some(item) = menu.get(CHECK_AUTO_SELECT) {
+                if let Some(check) = item.as_check_menuitem() {
+                    check.set_checked(settings.auto_show_query_icon)?;
+                }
+            }
+            match (settings.show_ocr_menu_items, menu.get("showOCRWindow")) {
+                (true, None) => menu.insert(
+                    &MenuItem::with_id(&handle, "showOCRWindow", "OCR 窗口", true, None::<&str>)?,
+                    6,
+                )?,
+                (false, Some(item)) => menu.remove(&item)?,
+                _ => {}
+            }
+            Ok(())
+        })();
+        if let Err(error) = result {
+            log::error!("could not refresh the tray menu: {error}");
+        }
+    }) {
+        log::error!("could not schedule tray menu refresh: {error}");
     }
 }
 

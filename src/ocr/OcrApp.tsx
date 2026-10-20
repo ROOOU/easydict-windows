@@ -130,9 +130,9 @@ export function OcrApp() {
   };
 
   useActions(({ action }) => {
-    if (action === "screenshotOCR") void capture("screenshot");
-    else if (action === "silentScreenshotOCR") void capture("screenshot", true);
-    else if (action === "pasteboardOCR") void capture("clipboard");
+    if (action === "screenshotOCR") return capture("screenshot");
+    else if (action === "silentScreenshotOCR") return capture("screenshot", true);
+    else if (action === "pasteboardOCR") return capture("clipboard");
   });
 
   const copy = async (kind: "text" | "translation") => {

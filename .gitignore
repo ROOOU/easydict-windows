@@ -3,6 +3,9 @@ node_modules/
 dist/
 dist-ssr/
 
+# Legacy local project copy; maintained sources live at the repository root
+/app/
+
 # Rust build output
 target/
 

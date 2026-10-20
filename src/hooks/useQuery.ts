@@ -150,7 +150,7 @@ export function useQuery(windowType: NonNullable<QueryRequest["windowType"]>): Q
 /**
  * Drains this window's native inbox once its settings and handlers are ready.
  */
-export function useActions(handler: (payload: ActionPayload) => void) {
+export function useActions(handler: (payload: ActionPayload) => void | Promise<void>) {
   const ref = useRef(handler);
   ref.current = handler;
 

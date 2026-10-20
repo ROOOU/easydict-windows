@@ -36,11 +36,6 @@ use webview2_com::{
 };
 use windows::core::{Interface, Result as ComResult};
 
-/// How long a window that had to run a hidden action stays awake afterwards.
-/// Suspending costs a round trip and a fresh renderer wake-up, so a burst of
-/// actions should not pay for it repeatedly.
-const AWAKE_AFTER_ACTION: Duration = Duration::from_secs(10);
-
 /// What the runtime accepted for one window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryState {
@@ -107,9 +102,24 @@ pub fn set_hidden(
     let report = Reporter::new(report);
     let finished = Arc::new((std::sync::Mutex::new(false), std::sync::Condvar::new()));
     let finished_in = finished.clone();
+    let app = window.app_handle().clone();
+    let label = window.label().to_owned();
+    let target = window.clone();
     window
         .with_webview(move |webview| {
             'request: {
+                // Check on the event thread, not when a worker was scheduled:
+                // a slow hidden OCR/replacement must receive its IPC response.
+                if hidden && (!should_suspend(
+                    target.is_visible().unwrap_or(true),
+                    target.is_focused().unwrap_or(true),
+                ) || app.try_state::<crate::window::Windows>()
+                    .is_some_and(|windows| windows.busy(&label)))
+                {
+                    *outcome.lock() = MemoryState::Active;
+                    report.report(false);
+                    break 'request;
+                }
                 let blame = |message: String| *trouble_in.lock() = Some(message);
                 let controller = webview.controller();
                 // Suspension, resumption and the memory target level belong to
@@ -273,30 +283,6 @@ pub fn activate(window: &WebviewWindow) {
     }) {
         log::debug!("could not wake {}: {error}", window.label());
     }
-}
-
-/// Wakes a hidden window that has an action to run, then lets it sleep again if
-/// it stays hidden. A suspended renderer cannot run the action, and the OCR
-/// window is expected to work while it is not visible.
-pub fn wake_for_action(window: &WebviewWindow) {
-    activate(window);
-    let app = window.app_handle().clone();
-    let label = window.label().to_owned();
-    tauri::async_runtime::spawn_blocking(move || {
-        std::thread::sleep(AWAKE_AFTER_ACTION);
-        let Some(window) = app.get_webview_window(&label) else {
-            return;
-        };
-        // A window opened in the meantime keeps running, and an unreadable
-        // state is treated as visible rather than guessing.
-        if !should_suspend(
-            window.is_visible().unwrap_or(true),
-            window.is_focused().unwrap_or(true),
-        ) {
-            return;
-        }
-        let _ = set_hidden(&window, true, |_| {});
-    });
 }
 
 #[cfg(test)]

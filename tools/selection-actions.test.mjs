@@ -16,7 +16,7 @@ const { outputText } = ts.transpileModule(
 // Run the actual action handlers and effects; native APIs and child views stay inert.
 function panel(options = {}, overrides = {}, native = null) {
   const settings = { autoQuerySelectedText: true, autoQueryWhenTextChanged: true, ...options };
-  const calls = { run: [], show: [], clear: 0, selected: 0 };
+  const calls = { run: [], show: [], clear: 0, selected: 0, translate: [], polish: [], replace: [], errors: [] };
   const states = [], refs = [], effects = [], timers = new Map();
   let stateIndex, refIndex, effectIndex, scheduled, handler, input, timerId = 0;
   let notifyLayout;
@@ -26,6 +26,10 @@ function panel(options = {}, overrides = {}, native = null) {
     hideWindow: async () => {},
     stopTts: async () => {},
     selectedText: async () => { calls.selected++; return " shortcut "; },
+    translateText: async (request) => { calls.translate.push(request); return { translatedResults: ["translated"] }; },
+    polishText: async (request) => { calls.polish.push(request); return { translatedResults: ["polished"] }; },
+    replaceSelectedText: async (text, target) => { calls.replace.push([text, target]); },
+    reportActionError: (error) => { calls.errors.push(String(error)); },
     ...overrides,
   };
   const jsx = (type, props) => {
@@ -78,7 +82,10 @@ function panel(options = {}, overrides = {}, native = null) {
     },
     "./QueryInput": { QueryInput: "QueryInput" },
     "./ResultList": { ResultList: "ResultList" },
-    "./resultUtils": { errorMessage: (error) => String(error) },
+    "./resultUtils": {
+      errorMessage: (error) => String(error),
+      translatedTextOf: (result) => result.translatedResults?.join("\n").trim() ?? "",
+    },
   };
   const exports = {};
   runInNewContext(outputText, {
@@ -106,6 +113,7 @@ function panel(options = {}, overrides = {}, native = null) {
     action: (action, text, selectionTarget) => handler({ action, text, selectionTarget }),
     edit: (value) => input.onChange(value),
     clear: () => input.onClear(),
+    unmount: () => { for (const effect of effects) effect?.cleanup?.(); },
     layout: (height) => { content.scrollHeight = height; notifyLayout(); },
     get text() { return states[0]; },
     async settle() {
@@ -126,6 +134,165 @@ function deferred() {
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
+
+test("polish-and-replace uses only the polishing command and preserves the selection target", async () => {
+  const view = panel({ queryFromLanguage: "French", queryToLanguage: "Simplified-Chinese" });
+  view.action("polishAndReplace", null, [123, 456]);
+  await view.settle();
+  assert.equal(view.calls.translate.length, 0);
+  assert.equal(view.calls.polish.length, 1);
+  assert.equal(view.calls.polish[0].text, "shortcut");
+  assert.equal(view.calls.polish[0].from, "auto", "polishing detects the actual source language");
+  assert.deepEqual(view.calls.replace, [["polished", [123, 456]]]);
+  assert.deepEqual(view.calls.show, [], "replacement must not steal focus");
+});
+
+test("translate-and-replace keeps its translation route", async () => {
+  const view = panel({ queryFromLanguage: "English", queryToLanguage: "French" });
+  view.action("translateAndReplace", null, [123, 456]);
+  await view.settle();
+  assert.equal(view.calls.polish.length, 0);
+  assert.equal(view.calls.translate.length, 1);
+  assert.equal(view.calls.translate[0].to, "French");
+  assert.deepEqual(view.calls.replace, [["translated", [123, 456]]]);
+});
+
+test("the native inbox can await the entire replacement, including the paste", async () => {
+  const pasted = deferred();
+  const view = panel({}, { replaceSelectedText: () => pasted.promise });
+  let finished = false;
+  const work = view.action("polishAndReplace", null, [123, 456]);
+  assert.equal(typeof work?.then, "function");
+  void work.then(() => { finished = true; });
+  await view.settle();
+  assert.equal(finished, false);
+  pasted.resolve();
+  await work;
+  assert.equal(finished, true);
+});
+
+test("replacement passes the exact original selection for a final native recheck", async () => {
+  const original = " \r\nSelected text with whitespace \t";
+  const replacements = [];
+  const view = panel({}, {
+    selectedText: async () => original,
+    replaceSelectedText: async (...args) => { replacements.push(args); },
+  });
+  view.action("polishAndReplace", null, [123, 456]);
+  await view.settle();
+  assert.deepEqual(replacements, [["polished", [123, 456], original]]);
+});
+
+test("replacement without an original target stops before selection or network access", async () => {
+  const view = panel();
+  view.action("polishAndReplace");
+  await view.settle();
+  assert.equal(view.calls.selected, 0);
+  assert.equal(view.calls.polish.length, 0);
+  assert.equal(view.calls.replace.length, 0);
+  assert.equal(view.calls.errors.length, 1);
+});
+
+test("the API wires action commands and the original selection to the native boundary", async () => {
+  const calls = [], apiExports = {};
+  let complete;
+  runInNewContext(ts.transpileModule(
+    readFileSync(new URL("../src/api.ts", import.meta.url), "utf8"),
+    { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } },
+  ).outputText, {
+    exports: apiExports,
+    require: (id) => ({
+      "@tauri-apps/api/core": { invoke: async (command, args) => { calls.push([command, args]); } },
+      "./hooks/actionInbox": { createActionInbox: (_next, _listen, _error, done) => { complete = done; } },
+    }[id] ?? {}),
+  });
+  await apiExports.polishText({ text: "sample" });
+  await complete();
+  await apiExports.replaceSelectedText("replacement", [123, 456], " original ");
+  assert.deepEqual(calls.map(([command]) => command), ["polish_text", "finish_action", "replace_selected_text"]);
+  assert.equal(calls[2][1].expectedText, " original ");
+  const native = readFileSync(new URL("../src-tauri/src/lib.rs", import.meta.url), "utf8");
+  for (const [command] of calls) assert.ok(native.includes(`commands::${command},`), command);
+});
+
+test("replacement rejects empty results and reports failure while hidden without falling back", async () => {
+  for (const overrides of [
+    { selectedText: async () => "" },
+    { polishText: async () => ({ translatedResults: [" "] }) },
+    { polishText: async () => { throw new Error("missing polishing key"); } },
+  ]) {
+    const view = panel({}, overrides);
+    view.action("polishAndReplace", null, [123, 456]);
+    await view.settle();
+    assert.equal(view.calls.translate.length, 0);
+    assert.equal(view.calls.replace.length, 0);
+    assert.equal(view.calls.errors.length, 1);
+    assert.deepEqual(view.calls.show, []);
+  }
+  const view = panel({}, { selectedText: async () => null });
+  view.action("polishAndReplace", null, [123, 456]);
+  await view.settle();
+  assert.equal(view.calls.errors.length, 0, "a changed native target cancels silently");
+  assert.equal(view.calls.polish.length, 0);
+});
+
+test("replacement discards a late selection or error after a newer action", async () => {
+  for (const reject of [false, true]) {
+    const reading = deferred();
+    const view = panel({}, { selectedText: () => reading.promise });
+    view.action("polishAndReplace", null, [123, 456]);
+    view.action("selectedTextPreview", "new selection");
+    if (reject) reading.reject(new Error("old read error"));
+    else reading.resolve("old selection");
+    await view.settle();
+    assert.equal(view.calls.polish.length, 0);
+    assert.equal(view.calls.translate.length, 0);
+    assert.equal(view.calls.replace.length, 0);
+    assert.equal(view.calls.errors.length, 0);
+  }
+});
+
+test("both replacement actions discard late results after edit, clear, unmount or a newer selection", async () => {
+  for (const action of ["polishAndReplace", "translateAndReplace"]) {
+    for (const invalidate of [
+      (view) => view.edit("new input"),
+      (view) => view.clear(),
+      (view) => view.unmount(),
+      (view) => view.action("selectedTextPreview", "new selection"),
+    ]) {
+      const result = deferred();
+      const view = panel({}, {
+        polishText: () => result.promise,
+        translateText: () => result.promise,
+      });
+      view.action(action, null, [123, 456]);
+      await view.settle();
+      invalidate(view);
+      result.resolve({ translatedResults: ["stale output"] });
+      await view.settle();
+      assert.equal(view.calls.replace.length, 0, action);
+    }
+  }
+});
+
+test("a newer replacement wins even if an older service completes or fails last", async () => {
+  for (const reject of [false, true]) {
+    const first = deferred();
+    let requests = 0;
+    const view = panel({}, {
+      polishText: () => ++requests === 1 ? first.promise : Promise.resolve({ translatedResults: ["new output"] }),
+    });
+    view.action("polishAndReplace", null, [123, 456]);
+    await view.settle();
+    view.action("polishAndReplace", null, [123, 456]);
+    await view.settle();
+    if (reject) first.reject(new Error("old service error"));
+    else first.resolve({ translatedResults: ["old output"] });
+    await view.settle();
+    assert.deepEqual(view.calls.replace, [["new output", [123, 456]]]);
+    assert.equal(view.calls.errors.length, 0);
+  }
+});
 
 test("lazy shortcut passes the original foreground token and a changed target cancels silently", async () => {
   const tokens = [];

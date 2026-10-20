@@ -17,6 +17,32 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+test("acknowledges only settled actions without blocking newer work or losing failures", async () => {
+  const slow = deferred();
+  const queue = ["slow", "new", "sync-error", "async-error"].map((action) => ({ action }));
+  const errors = [], seen = [];
+  let completed = 0;
+  const subscribe = createActionInbox(
+    async () => queue.shift() ?? null,
+    async () => {},
+    (error) => errors.push(String(error)),
+    async () => { completed++; },
+  );
+  subscribe(({ action }) => {
+    seen.push(action);
+    if (action === "slow") return slow.promise;
+    if (action === "sync-error") throw new Error("sync failure");
+    if (action === "async-error") return Promise.reject(new Error("async failure"));
+  });
+  await settle();
+  assert.deepEqual(seen, ["slow", "new", "sync-error", "async-error"]);
+  assert.equal(completed, 3);
+  assert.equal(errors.length, 2);
+  slow.resolve();
+  await settle();
+  assert.equal(completed, 4);
+});
+
 test("subscribes before first pull, drains FIFO, and stays idle without notifications", async () => {
   const ready = deferred();
   const queue = ["first", "second"].map((action) => ({ action }));

@@ -19,11 +19,17 @@ const MAX_PENDING: usize = 32;
 const MAX_ACTION_BYTES: usize = 256 * 1024;
 
 #[derive(Default)]
+struct ActionQueue {
+    pending: VecDeque<ActionPayload>,
+    active: usize,
+}
+
+#[derive(Default)]
 pub struct Windows {
     // Only worker threads take this lock. Main-thread callbacks must never
     // wait for a builder: WebView2 creation needs the event loop to keep running.
     creating: Mutex<()>,
-    pending: Mutex<HashMap<String, VecDeque<ActionPayload>>>,
+    pending: Mutex<HashMap<String, ActionQueue>>,
 }
 
 impl Windows {
@@ -39,15 +45,33 @@ impl Windows {
         }
         let mut pending = self.pending.lock();
         let queue = pending.entry(label.into()).or_default();
-        if queue.len() >= MAX_PENDING {
+        if queue.pending.len() >= MAX_PENDING {
             return Err(format!("{label}: too many pending actions; please retry"));
         }
-        queue.push_back(payload);
+        queue.pending.push_back(payload);
         Ok(())
     }
 
     pub fn next(&self, label: &str) -> Option<ActionPayload> {
-        self.pending.lock().get_mut(label)?.pop_front()
+        let mut pending = self.pending.lock();
+        let queue = pending.get_mut(label)?;
+        let payload = queue.pending.pop_front()?;
+        queue.active += 1;
+        Some(payload)
+    }
+
+    pub fn busy(&self, label: &str) -> bool {
+        self.pending.lock().get(label)
+            .is_some_and(|queue| queue.active > 0 || !queue.pending.is_empty())
+    }
+
+    /// Returns true only when the last delivered action has settled.
+    pub fn complete(&self, label: &str) -> bool {
+        let mut pending = self.pending.lock();
+        let Some(queue) = pending.get_mut(label) else { return false };
+        if queue.active == 0 { return false; }
+        queue.active -= 1;
+        queue.active == 0 && queue.pending.is_empty()
     }
 }
 
@@ -111,7 +135,7 @@ pub fn enqueue(app: &AppHandle, label: &str, payload: ActionPayload) -> Result<(
         let result = ensure(&app, &label).and_then(|window| {
             // A suspended WebView cannot run the action, and the OCR window is
             // expected to work while hidden.
-            crate::platform::webview_memory::wake_for_action(&window);
+            crate::platform::webview_memory::activate(&window);
             window.emit_to(label.as_str(), crate::commands::events::ACTION, ()).map_err(|error| error.to_string())
         });
         if let Err(error) = result {
@@ -410,6 +434,24 @@ pub fn fit_to_content(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_window_stays_busy_until_queued_and_delivered_actions_finish() {
+        let windows = Windows::default();
+        assert!(!windows.busy("main"));
+        assert!(!windows.complete("main"));
+        windows.push("main", ActionPayload::new("polishAndReplace", None)).unwrap();
+        windows.push("main", ActionPayload::new("translateAndReplace", None)).unwrap();
+        assert!(windows.busy("main"));
+        windows.next("main").unwrap();
+        assert!(!windows.complete("main"), "an unclaimed action still needs the renderer");
+        windows.next("main").unwrap();
+        assert!(windows.busy("main"));
+        assert!(!windows.busy("ocr"));
+        assert!(windows.complete("main"));
+        assert!(!windows.busy("main"));
+        assert!(!windows.complete("main"), "duplicate completion must not underflow");
+    }
 
     #[test]
     fn inbox_is_bounded_fifo_and_isolated_to_known_windows() {

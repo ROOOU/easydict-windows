@@ -1,12 +1,12 @@
 # macOS 行为对照与轻量化验收
 
-日期：2026-10-19。这里区分源码对照、自动化检查和实机验收，不把构建成功视作完整移植。
+日期：2026-10-21。这里区分源码对照、自动化检查和实机验收，不把构建成功视作完整移植。
 
 ## 对照基线
 
 对照基线：上游 [tisfeng/Easydict](https://github.com/tisfeng/Easydict) 源码。
 本地分析副本未确认 release/tag/commit，不能声称对齐某个确定发布版本。
-本轮重新读取并核对以下文件的 SHA-256：
+各轮读取并记录的文件 SHA-256 如下；第二十轮新增替换动作与润色源码记录：
 
 | 上游相对路径 | SHA-256 |
 |---|---|
@@ -14,6 +14,9 @@
 | `Easydict/Swift/Utility/EventMonitor/Workflow/SelectionWorkflow.swift` | `B970F2473050A587672554AAF5F27A527FC80577FCCA068A18385A538294837D` |
 | `Easydict/objc/ViewController/Window/WindowManager/EZWindowManager.m` | `22C2A007D7699641A0AA973E8D19B808A18ED66EF0D3BDCE9704458BD9808D64` |
 | `Easydict/objc/ViewController/Window/WindowManager/EZLayoutManager.m` | `51AD7426609046F9A04BB66507F42B8A491B768519CBDCEBE01945C164848295` |
+| `Easydict/Swift/View/MenuItemView.swift` | `38837A1E02C4A827AA8553796631FDB629FA294A1D746C10A531C82642F748BB` |
+| `Easydict/Swift/Feature/ActionManager/ActionManager.swift` | `206B7EB55185F8E40BD2A9A882CC1009069BF0016C3987709A13B98DE9925DFE` |
+| `Easydict/Swift/Service/AITool/PolishingService.swift` | `EDD03AF887AFD974DE9AB93123EB2B58EA25A527CB1BB56752DD79E9B46D92B1` |
 
 窗口不激活与消失规则另参考 `EZPopButtonWindow.m`、`PopButtonVisibilityController.swift`。
 Windows 主要实现为 `src-tauri/src/platform/auto_selection.rs`、`platform/selection.rs`、
@@ -24,6 +27,10 @@ Windows 主要实现为 `src-tauri/src/platform/auto_selection.rs`、`platform/s
 | 行为 | 上游证据 | Windows 当前实现/证据 | 边界 |
 |---|---|---|---|
 | 后台划词开关 | `EventMonitor.swift` 的 `autoSelectText` 控制事件监听 | `autoShowQueryIcon` 控制原生钩子；托盘、设置、快捷键共用持久化路径 | 关闭状态生命周期测试通过，实际开关交互未验收 |
+| 菜单动作与勾选 | `MenuItemView.swift:144/162/280` 的一次性动作是 Button，不表示持久开关 | 第十九轮保留普通命令项；本端“自动划词”开关复用原生菜单，跟随持久化设置同步，保存失败恢复勾选 | 原生消息、配置落盘及实际 Windows 菜单勾选标志有回归；Explorer 右键菜单外观尚未验收，不声称菜单布局完全一致 |
+| 润色并替换 | `ActionManager.swift` 的 `.polish` 指定 `PolishingService`；后者忽略目标语言，以识别出的原语言构造润色提示 | 第二十轮新增 `polish_text`，复用已有润色服务及其配置，不再误走普通翻译；显式动作不受查询卡片开关影响，缺密钥/空结果/失败不回退 | 前端动作、原生命令函数及本地 JSON/SSE 往返通过；未用真实文档/密钥验收，仍是整段结果一次替换，不是原版逐段流式插入 |
+| 替换与剪贴板 | `ActionManager.swift:164/170/196` 在非 AX 插入路径备份并恢复 pasteboard | 第二十一轮复用既有多格式备份，写入/恢复检查版本；粘贴前复核原目标和未裁剪原文；缺绑定或不支持格式则拒绝 | 纯逻辑及拒绝路径通过；隔离剪贴板测试创建站点被拒绝，真实编辑器未验收；同文异位、注入竞态和 120 ms 消费窗口仍有限制，结果卡片无绑定时不能替换 |
+| 隐藏动作完成后休眠 | macOS 的动作由原生异步任务执行，不依赖 WebView 脚本调度 | 第二十轮以每窗未领取/在途动作数阻止过早挂起，前端完成后 `finish_action` 释放；删除固定 10 秒休眠线程 | 隐藏原生 WebView 验证任务期间拒绝挂起、完成后可挂起/唤醒；页面崩溃/重载恢复及长时间桌面操作未验收 |
 | 自动查询不是监听开关 | `EZWindowManager.m:303/321` 用 `autoQuerySelectedText` 控制打开后的查询 | 鼠标与快捷键均支持仅填原文；前端回归覆盖文本变化自动查询不能绕过预览 | 真实窗口操作未验收 |
 | 点击与悬停 | `EZWindowManager.m:169/176`：隐藏主窗口且 clickQuery 开才要求点击，否则悬停 | 配置推导测试覆盖两种设置组合；原生窗口接收鼠标消息 | 不是菜单开关；悬停焦点行为需实测 |
 | 不激活图标 | `EZPopButtonWindow` 不成为 key/main window | `WS_EX_NOACTIVATE`、`WS_EX_TOOLWINDOW` 和 `MA_NOACTIVATE` | 仅源码检查；不得称焦点验收通过 |
@@ -40,6 +47,16 @@ Windows 主要实现为 `src-tauri/src/platform/auto_selection.rs`、`platform/s
 | 窗口几何记忆 | `EZLayoutManager.m:53/59/65` 初始化并回写 `windowFrameWithType:`，`:217` 在变化时保存；`EZWindowManager.m:619/676` 用「上次位置」恢复 | 第十三轮 `Settings.windowFrames` 按窗口类型保存矩形，`window_frame.rs` 在移动/缩小时静置合并落盘，「上次位置」恢复位置与尺寸 | 映射、零尺寸拒绝、覆盖与 JSON 往返有单测；跨重启真机恢复、混合 DPI 跨屏、拖拽期间的写入次数未验收 |
 
 ## 轻量化事实与待测项
+
+第二十一轮补充：替换复用已有选区读取锁、UIA 与剪贴板备份；阻塞工作移出事件线程，
+临时备份内存随操作结束释放。没有新增依赖、WebView 或常驻线程；未重新测量整个进程树，
+不把线程调整或安装器大小变化当作内存、CPU 的实际改善。
+
+第二十轮补充：复用已有润色服务、提示词和传输层；原生队列仅增加逐窗口在途计数，
+前端动作完成后确认，不阻塞新操作对旧结果的失效。删除每个隐藏动作启动后等待 10 秒的
+阻塞工作任务，空闲窗口在最后一个动作完成后才申请挂起；在事件线程再检查可见性与焦点，
+防止迟到的挂起请求影响已显示窗口。没有新增依赖、WebView、常驻线程或轮询，
+本轮没有重测完整进程树，因此不报告内存或 CPU 下降比例。
 
 第十七轮补充：窗口几何记录独立于用户偏好更新，仍保留上游逐窗口矩形语义及旧版主窗宽高。
 原生回归测得旧实现一次记录重建 24 个服务对象并广播 1 次设置；新实现两项均为 0，
@@ -77,8 +94,9 @@ Windows 主要实现为 `src-tauri/src/platform/auto_selection.rs`、`platform/s
   原生每窗最多 32 条、单条文本 256 KiB，前端最多暂存一条，没有空闲轮询。
   第十二轮起，命令行里的 `easydict://` 链接也走这条队列：冷启动与二实例都先入队再显示窗口。
   根组件等待真实设置；原有结果监听就绪机制保留。StrictMode 和并发通知回归通过。
-- 快捷键保存触发时的前台/焦点控件标识，实际读取前后变化则取消；这不是文本快照，
-  同一控件内的选区变化及完整替换安全仍需完善。隐藏原生测试不运行实际业务页面，
+- 快捷键保存触发时的前台/焦点控件标识，实际读取前后变化则取消；触发时尚未捕获文字。
+  第二十一轮替换会比较首次读取与粘贴前的精确原文，但同文异位和检查后竞态仍无法排除。
+  隐藏原生测试不运行实际业务页面，
   不能代替首次设置导航、普通/静默 OCR、真实应用划词与托盘交互验收。
 - 待记录同一机器、同一配置下的冷/热启动、托盘空闲 60 秒、连续划词 5 分钟、逐一开关窗口后的
   完整进程树 RSS/私有内存、CPU 增量、进程数和句柄数；包括 WebView2 子进程，不能只测主 EXE。
@@ -97,6 +115,9 @@ Windows 主要实现为 `src-tauri/src/platform/auto_selection.rs`、`platform/s
 4. 逐窗口显示开关与窗口几何记忆已在第十三轮接通（六个字段 + `windowFrames`），但窗口动画语义、
    应用/网站规则、HTTP、MDict、CLI 服务、有道 OCR、远程语言校正及替换语义等缺口继续登记；
    跨重启窗口位置只有单元级覆盖，未做真机重启验收。
+   第二十轮已修正润色服务路由，第二十一轮加入精确原文复核与支持格式的剪贴板事务；
+   后者的隔离集成测试仍未通过，真实编辑器与结果卡片返回路径未验收/实现。
+   原版自动全选和流式插入仍未移植，不能据此称为与原版完全对等。
 5. 补齐资源测量及持续使用稳定性，才可判断轻量化要求是否满足。
 
 本轮测试和安装器记录见 [`windows-validation.md`](windows-validation.md)。目前总体目标仍未完成。

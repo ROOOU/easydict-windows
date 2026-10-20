@@ -638,29 +638,49 @@ pub async fn translate_text(
     Err(QueryError::new(crate::model::ErrorType::NoResult).to_string())
 }
 
-/// Replaces the current selection with `text`, via the clipboard.
+/// Explicit polishing uses its configured service even when its query card is
+/// disabled, like ActionManager.polishService. Never fall back to translation.
 #[tauri::command]
-pub fn replace_selected_text(text: String, target: Option<[isize; 2]>) -> Result<(), String> {
-    if target.is_some_and(|target| crate::platform::selection_target() != Some(target)) {
-        return Err("原选区窗口已失去焦点，已取消替换".into());
+pub async fn polish_text(
+    state: State<'_, Arc<AppState>>,
+    request: QueryRequest,
+) -> Result<QueryResult, String> {
+    if request.text.trim().is_empty() {
+        return Err("没有可润色的文字".into());
     }
-    let mut clipboard = arboard_clipboard()?;
-    let previous = clipboard.get_text().ok();
-    clipboard.set_text(text).map_err(|e| e.to_string())?;
-    if target.is_some_and(|target| crate::platform::selection_target() != Some(target)) {
-        if let Some(previous) = previous {
-            let _ = clipboard.set_text(previous);
-        }
-        return Err("原选区窗口已失去焦点，已取消替换".into());
+    let handle = state.handle_for(ServiceType::Polishing.raw())
+        .ok_or_else(|| "润色服务不可用，请检查服务设置".to_string())?;
+    let mut model = build_query_model(&state, &QueryRequest { from: Language::Auto, ..request });
+    model.query_target_language = model.query_from_language;
+    model.query_type = QueryTextType::TRANSLATION;
+    let handle = crate::query::ServiceHandle::new(handle.service.clone());
+    let result = crate::query::run_direct(&handle, &model).await
+        .map_err(|error| format!("润色失败，请检查设置 → 服务 → Polishing：{error}"))?;
+    if !result.translated_results.as_ref()
+        .is_some_and(|lines| lines.iter().any(|line| !line.trim().is_empty()))
+    {
+        return Err("润色服务没有返回文字，未替换原文".into());
     }
-    crate::system::send_paste_keystroke().map_err(|e| e.to_string())?;
-    // Give the target application a moment to read the clipboard before the
-    // previous contents go back.
-    std::thread::sleep(std::time::Duration::from_millis(120));
-    if let Some(previous) = previous {
-        let _ = clipboard.set_text(previous);
-    }
-    Ok(())
+    state.record_history(&model);
+    Ok(result)
+}
+
+/// Rechecks the original selection before a revision-checked clipboard paste.
+#[tauri::command]
+pub async fn replace_selected_text(
+    state: State<'_, Arc<AppState>>,
+    text: String,
+    target: Option<[isize; 2]>,
+    expected_text: Option<String>,
+) -> Result<(), String> {
+    let (Some(target), Some(expected_text)) = (target, expected_text) else {
+        return Err("缺少原选区信息；请回到原应用选中文字，使用“翻译并替换”或“润色并替换”快捷键".into());
+    };
+    let force = state.settings().enable_force_get_selected_text;
+    tokio::task::spawn_blocking(move || {
+        crate::platform::replace_selected_text(&text, &expected_text, target, force)
+            .map_err(|error| error.to_string())
+    }).await.map_err(|error| error.to_string())?
 }
 
 // ---------------------------------------------------------------------------
@@ -928,6 +948,13 @@ pub async fn show_window(
 #[tauri::command]
 pub fn next_action(window: tauri::WebviewWindow, app: AppHandle) -> Option<ActionPayload> {
     app.state::<crate::window::Windows>().next(window.label())
+}
+
+#[tauri::command]
+pub fn finish_action(window: tauri::WebviewWindow, app: AppHandle) {
+    if app.state::<crate::window::Windows>().complete(window.label()) {
+        crate::platform::webview_memory::release_when_hidden(&app, window.label());
+    }
 }
 
 #[tauri::command]

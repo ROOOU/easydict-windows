@@ -16,7 +16,7 @@ pub mod webview_memory;
 
 pub use screenshot::{ScreenshotSelection, capture_selection};
 pub use selection::selected_text;
-pub(crate) use selection::{selected_text_at, selection_target};
+pub(crate) use selection::{replace_selected_text, selected_text_at, selection_target};
 
 use std::mem::size_of;
 

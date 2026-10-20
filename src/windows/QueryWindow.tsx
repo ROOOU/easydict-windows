@@ -718,40 +718,36 @@ export function QueryWindow({ kind }: { kind: "main" | "mini" | "fixed" }) {
     }
   }, [showToast]);
 
-  /**
-   * Translate-and-replace goes through `translate_text`, which the Rust side
-   * documents as the no-UI path for exactly this action. "Polish" shares it:
-   * the polish prompt is a service-level choice this front-end cannot make.
-   */
-  const translateAndReplace = useCallback(async (target?: ActionPayload["selectionTarget"]) => {
-    // Both halves of this action belong to the *other* window: the selection is
-    // read from it and the paste has to land in it. A floating panel therefore
-    // hides and stays hidden, exactly as the macOS app does.
-    if (!target && floating) {
-      await api.hideWindow(label).catch(() => undefined);
-      await delay(160);
+  const processAndReplace = useCallback(async (
+    polish: boolean,
+    target?: ActionPayload["selectionTarget"],
+  ) => {
+    const request = ++ocrRequestRef.current;
+    try {
+      if (!target) throw new Error("缺少原选区信息，请在原应用使用替换快捷键");
+      if (request !== ocrRequestRef.current) return;
+      const value = await api.selectedText(target);
+      if (request !== ocrRequestRef.current || value === null) return;
+      const selected = value.trim();
+      if (!selected) throw new Error("没有获取到选中的文字");
+      const result = await (polish ? api.polishText : api.translateText)({
+        text: selected,
+        from: polish ? "auto" : fromRef.current,
+        to: toRef.current,
+        windowType: kind,
+      });
+      if (request !== ocrRequestRef.current) return;
+      const translated = translatedTextOf(result);
+      if (!translated) throw new Error(polish ? "没有获取到润色结果" : "没有获取到译文");
+      await api.replaceSelectedText(translated, target, value);
+      if (request === ocrRequestRef.current) showToast(polish ? "已润色并替换" : "已替换");
+    } catch (error) {
+      if (request !== ocrRequestRef.current) return;
+      // A toast alone is invisible in this no-window workflow.
+      api.reportActionError(error);
+      throw error;
     }
-    const value = await api.selectedText(target);
-    if (value === null) return;
-    const selected = value.trim();
-    if (!selected) {
-      showToast("没有获取到选中的文字");
-      return;
-    }
-    const result = await api.translateText({
-      text: selected,
-      from: fromRef.current,
-      to: toRef.current,
-      windowType: kind,
-    });
-    const translated = translatedTextOf(result);
-    if (!translated) {
-      showToast("没有获取到译文");
-      return;
-    }
-    await api.replaceSelectedText(translated, target);
-    showToast("已替换");
-  }, [floating, kind, label, showToast]);
+  }, [kind, showToast]);
 
   const toggleAutoSelectText = useCallback(async () => {
     const settings = await loadSettings();
@@ -816,7 +812,7 @@ export function QueryWindow({ kind }: { kind: "main" | "mini" | "fixed" }) {
           break;
         case "translateAndReplace":
         case "polishAndReplace":
-          await runBusy(() => translateAndReplace(payload.selectionTarget));
+          await runBusy(() => processAndReplace(payload.action === "polishAndReplace", payload.selectionTarget));
           break;
         case "toggleAutoSelectText":
           await runBusy(toggleAutoSelectText);
@@ -844,13 +840,11 @@ export function QueryWindow({ kind }: { kind: "main" | "mini" | "fixed" }) {
       screenshotTranslate,
       selectTranslate,
       toggleAutoSelectText,
-      translateAndReplace,
+      processAndReplace,
     ],
   );
 
-  useActions((payload) => {
-    void handleAction(payload);
-  });
+  useActions(handleAction);
 
   // --- keyboard shortcuts ---------------------------------------------------
 
